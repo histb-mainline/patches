@@ -1,0 +1,58 @@
+Replace-From: David Yang <mmyangfl@gmail.com>
+Replace-Date: Wed, 21 Oct 2026 14:36:43 +0800
+Subject: ARM: dts: hisilicon: add the Huawei AR513W board
+
+
+The SoC file above needs a board that switches things on.
+
+The AR513W-V3M8 (bigfish) is a Hi3716CV200 board: console on uart0,
+1 GiB NAND, and the JPEG pair and the video codecs enabled, taking
+their buffers from the default CMA area.
+
+Describe the board and gate its DTB on ARCH_HI3716CV200.
+
+Signed-off-by: David Yang <mmyangfl@gmail.com>
+ 1 file changed, 31 insertions(+)
+ create mode 100644 arch/arm/boot/dts/hisilicon/hi3716cv200-ar513w.dts
+
+
+diff --git a/arch/arm/boot/dts/hisilicon/hi3716cv200-ar513w.dts b/arch/arm/boot/dts/hisilicon/hi3716cv200-ar513w.dts
+new file mode 100644
+index 000000000000..d32e48babc51
+--- /dev/null
++++ b/arch/arm/boot/dts/hisilicon/hi3716cv200-ar513w.dts
+@@ -0,0 +1,31 @@
++// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
++/*
++ * Huawei AR513W-V3M8: Hi3716CV200 (bigfish) with 1 GiB NAND,
++ * console on uart0. The NAND partition table belongs to the
++ * platform that owns it and is not described here.
++ */
++
++/dts-v1/;
++
++#include "hi3716cv200.dtsi"
++
++/ {
++	model = "Huawei AR513W-V3M8 (Hi3716CV200)";
++	compatible = "hisilicon,ar513w", "hisilicon,hi3716cv200";
++};
++
++
++/* The JPEG codec pair: transfers ran on this board. */
++&jpgd { status = "okay"; };
++&jpge { status = "okay"; };
++
++/*
++ * The video codecs. No `memory-region`: both queues are dma-contig
++ * and the driver binds the region that property names if there is
++ * one, but this kernel already reserves a 128 MiB default CMA area
++ * (CONFIG_CMA_SIZE_MBYTES), which is where the JPEG pair allocated
++ * on this board. A dedicated pool is only worth pricing in once a
++ * session needs more than that area can give.
++ */
++&vdec { status = "okay"; };
++&venc { status = "okay"; };
+-- 
+2.53.0
+

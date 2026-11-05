@@ -1,0 +1,33 @@
+Replace-From: David Yang <mmyangfl@gmail.com>
+Replace-Date: Fri, 23 Oct 2026 06:59:50 +0800
+Subject: dt-bindings: watchdog: arm,sp805: reference the PrimeCell binding
+
+The SP805 binding ends in unevaluatedProperties: false but, unlike the
+other PrimeCell bindings, never references /schemas/arm/primecell.yaml#,
+so arm,primecell-periphid -- the override for the hardware ID value --
+cannot be described on an SP805 node.
+That override is not optional on hardware that needs it: an SP805 whose
+ID header is absent never gets past amba_match() without it and no
+watchdog exists, and the existing hix5hd2 board file already carries the
+property for this reason.
+Add the reference.
+
+Signed-off-by: David Yang <mmyangfl@gmail.com>
+ 1 file changed, 1 insertion(+)
+
+
+diff --git a/Documentation/devicetree/bindings/watchdog/arm,sp805.yaml b/Documentation/devicetree/bindings/watchdog/arm,sp805.yaml
+index bd7c09ed1938..690456839fcc 100644
+--- a/Documentation/devicetree/bindings/watchdog/arm,sp805.yaml
++++ b/Documentation/devicetree/bindings/watchdog/arm,sp805.yaml
+@@ -16,6 +16,7 @@ description: |+
+ 
+ allOf:
+   - $ref: /schemas/watchdog/watchdog.yaml#
++  - $ref: /schemas/arm/primecell.yaml#
+ 
+ # Need a custom select here or 'arm,primecell' will match on lots of nodes
+ select:
+-- 
+2.53.0
+

@@ -1,0 +1,44 @@
+Replace-From: David Yang <mmyangfl@gmail.com>
+Replace-Date: Tue, 27 Oct 2026 16:52:23 +0800
+Subject: MAINTAINERS: add the HiSilicon STB regulator and clock entries
+
+The PMOC regulator driver and the Hi3798MV100 CRG clock driver have no
+maintainer entries.
+Both are DT-binding drivers of this platform, one reviewed under
+linux-kernel and one under linux-clk.
+Register the two drivers with their binding and clock headers.
+
+Signed-off-by: David Yang <mmyangfl@gmail.com>
+ 1 file changed, 16 insertions(+)
+
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index fd19de8b2afd..19d1592fcd98 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -12192,6 +12192,22 @@ S:	Maintained
+ F:	Documentation/devicetree/bindings/mfd/hisilicon,hi6421-spmi-pmic.yaml
+ F:	drivers/mfd/hi6421-spmi-pmic.c
+ 
++HISILICON STB CLOCK DRIVER
++M:	David Yang <mmyangfl@gmail.com>
++L:	linux-clk@vger.kernel.org
++L:	linux-arm-kernel@lists.infradead.org
++S:	Maintained
++F:	Documentation/devicetree/bindings/clock/hisilicon,hisi-crg.yaml
++F:	drivers/clk/hisilicon/crg-hi3798mv100.c
++F:	include/dt-bindings/clock/hisilicon,hi3798mv100-*.h
++
++HISILICON STB VOLTAGE REGULATOR DRIVER
++M:	David Yang <mmyangfl@gmail.com>
++L:	linux-kernel@vger.kernel.org
++S:	Maintained
++F:	Documentation/devicetree/bindings/regulator/hisilicon,hi3798cv200-regulator.yaml
++F:	drivers/regulator/histb-regulator.c
++
+ HISILICON TRUE RANDOM NUMBER GENERATOR V2 SUPPORT
+ M:	Weili Qian <qianweili@huawei.com>
+ S:	Maintained
+-- 
+2.53.0
+

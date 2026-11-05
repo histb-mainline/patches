@@ -1,0 +1,50 @@
+Replace-From: David Yang <mmyangfl@gmail.com>
+Replace-Date: Wed, 4 Nov 2026 00:17:21 +0800
+Subject: [LOCAL] MAINTAINERS: entries for the bench-only files
+
+
+The bench files this series keeps out of the submitted tree are not listed here on purpose.
+ 1 file changed, 3 insertions(+), 5 deletions(-)
+
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 751eec51a293..5e94bb4b0baf 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -8356,7 +8356,7 @@ M:	David Yang <mmyangfl@gmail.com>
+ L:	dri-devel@lists.freedesktop.org
+ S:	Supported
+ F:	Documentation/devicetree/bindings/display/bridge/hisilicon,hi3798mv100-hdmi.yaml
+-F:	Documentation/devicetree/bindings/display/hisilicon/hisilicon,hi3716cv200-vdp.yaml
++F:	Documentation/devicetree/bindings/display/hisilicon/hisilicon,hi3798mv100-vdp.yaml
+ F:	drivers/gpu/drm/bridge/hi3798mv100-hdmi.c
+ F:	drivers/gpu/drm/bridge/sii9134.c
+ F:	drivers/gpu/drm/bridge/sii9134.h
+@@ -12040,14 +12040,12 @@ F:	drivers/net/dsa/hirschmann/*
+ F:	include/linux/platform_data/hirschmann-hellcreek.h
+ F:	net/dsa/tag_hellcreek.c
+ 
+-HISILICON AIAO AUDIO DRIVERS
++HISILICON AIAO AUDIO I2S PORTS
+ M:	David Yang <mmyangfl@gmail.com>
+ L:	linux-sound@vger.kernel.org
+ S:	Supported
+-F:	Documentation/devicetree/bindings/sound/hisilicon,hi3716cv200-adac.yaml
+ F:	Documentation/devicetree/bindings/sound/hisilicon,hi3798mv100-aiao-card.yaml
+ F:	Documentation/devicetree/bindings/sound/hisilicon,hi3798mv100-aiao-i2s.yaml
+-F:	sound/soc/hisilicon/histb-adac.c
+ F:	sound/soc/hisilicon/histb-aiao-card.c
+ F:	sound/soc/hisilicon/histb-aiao-i2s.c
+ 
+@@ -12235,7 +12233,7 @@ M:	David Yang <mmyangfl@gmail.com>
+ L:	linux-media@vger.kernel.org
+ L:	linux-arm-kernel@lists.infradead.org
+ S:	Maintained
+-F:	Documentation/devicetree/bindings/media/hisilicon,hi3716cv200-vdec.yaml
++F:	Documentation/devicetree/bindings/media/hisilicon,hi3798mv100-vdec.yaml
+ F:	drivers/media/platform/hisilicon/histb-vdec/
+ 
+ HISILICON STB VOLTAGE REGULATOR DRIVER
+-- 
+2.53.0
+

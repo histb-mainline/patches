@@ -1,0 +1,31 @@
+Replace-From: David Yang <mmyangfl@gmail.com>
+Replace-Date: Tue, 27 Oct 2026 06:41:30 +0800
+Subject: net: hisilicon: accept the generic FEMAC compatible
+
+
+The Hi3798MV200 binding documents <"hisilicon,hi3798mv200-femac">,
+<"hisilicon,hisi-femac">, so the fallback cell needs a driver entry of
+its own.
+
+Add it; the legacy -v1/-v2/hi3516cv300 strings are documented in the
+same schema and stay in the table.
+
+Signed-off-by: David Yang <mmyangfl@gmail.com>
+ 1 file changed, 1 insertion(+)
+
+
+diff --git a/drivers/net/ethernet/hisilicon/hisi_femac.c b/drivers/net/ethernet/hisilicon/hisi_femac.c
+index e6a13c1c9360..e1ce1aedad96 100644
+--- a/drivers/net/ethernet/hisilicon/hisi_femac.c
++++ b/drivers/net/ethernet/hisilicon/hisi_femac.c
+@@ -1011,6 +1011,7 @@ static int hisi_femac_drv_resume(struct platform_device *pdev)
+ #endif
+ 
+ static const struct of_device_id hisi_femac_match[] = {
++	{.compatible = "hisilicon,hisi-femac",},
+ 	{.compatible = "hisilicon,hisi-femac-v1",},
+ 	{.compatible = "hisilicon,hisi-femac-v2",},
+ 	{.compatible = "hisilicon,hi3516cv300-femac",},
+-- 
+2.53.0
+

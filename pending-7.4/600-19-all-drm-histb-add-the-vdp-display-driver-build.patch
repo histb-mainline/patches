@@ -1,0 +1,76 @@
+Replace-From: David Yang <mmyangfl@gmail.com>
+Replace-Date: Tue, 27 Oct 2026 20:06:06 +0800
+Subject: drm/histb: add the VDP display driver build scaffolding
+
+The DRM build has no entry for the HiSTB display drivers.
+Add the histb Kconfig and Makefile and hook them under the DRM build.
+
+Signed-off-by: David Yang <mmyangfl@gmail.com>
+ 3 files changed, 2 insertions(+), 30 deletions(-)
+
+
+diff --git a/drivers/gpu/drm/Kconfig b/drivers/gpu/drm/Kconfig
+index 61111d50b1c6..d3bf07b95140 100644
+--- a/drivers/gpu/drm/Kconfig
++++ b/drivers/gpu/drm/Kconfig
+@@ -317,6 +317,7 @@ source "drivers/gpu/drm/fsl-dcu/Kconfig"
+ source "drivers/gpu/drm/gma500/Kconfig"
+ source "drivers/gpu/drm/gud/Kconfig"
+ source "drivers/gpu/drm/hisilicon/Kconfig"
++source "drivers/gpu/drm/histb/Kconfig"
+ source "drivers/gpu/drm/hyperv/Kconfig"
+ source "drivers/gpu/drm/i915/Kconfig"
+ source "drivers/gpu/drm/imagination/Kconfig"
+diff --git a/drivers/gpu/drm/Makefile b/drivers/gpu/drm/Makefile
+index 2c6bc093a923..a48edd305dfd 100644
+--- a/drivers/gpu/drm/Makefile
++++ b/drivers/gpu/drm/Makefile
+@@ -214,6 +214,7 @@ obj-y			+= bridge/
+ obj-$(CONFIG_DRM_FSL_DCU) += fsl-dcu/
+ obj-$(CONFIG_DRM_ETNAVIV) += etnaviv/
+ obj-y			+= hisilicon/
++obj-y			+= histb/
+ obj-y			+= mxsfb/
+ obj-y			+= sysfb/
+ obj-y			+= tiny/
+diff --git a/drivers/gpu/drm/histb/Kconfig b/drivers/gpu/drm/histb/Kconfig
+index 453277aa0f10..16375342383f 100644
+--- a/drivers/gpu/drm/histb/Kconfig
++++ b/drivers/gpu/drm/histb/Kconfig
+@@ -15,33 +15,3 @@ config DRM_HISTB_VDP2
+ 	  endpoint.
+ 
+ 	  If in doubt, say N.
+-
+-config DRM_HISTB_VDP4
+-	tristate "DRM Support for HiSTB VDP v4 display engine"
+-	depends on DRM && OF && ARM64
+-	select MFD_SYSCON
+-	select DRM_GEM_DMA_HELPER
+-	select DRM_KMS_HELPER
+-	select DRM_DISPLAY_HELPER
+-	select DRM_BRIDGE_CONNECTOR
+-	select DRM_CLIENT_SELECTION
+-	help
+-	  Choose this option for DRM support for the VDP v4 display engine found
+-	  on HiSilicon HiSTB SoCs such as the hi3798mv200. It exposes one CRTC with
+-	  a primary plane and sends its output to the display interface selected
+-	  through the device tree of_graph port@0 endpoint.
+-
+-	  If in doubt, say N.
+-
+-config DRM_HISTB_HDMI
+-	tristate "DRM support for the HiSTB on-chip HDMI transmitter"
+-	depends on DRM && I2C && OF && ARM64
+-	select MFD_SYSCON
+-	select SND_SOC_HDMI_CODEC if SND_SOC
+-	help
+-	  Choose this option for the on-chip HDMI 2.0 transmitter of HiSilicon
+-	  HiSTB SoCs such as the hi3798mv200. It is the bridge downstream of a
+-	  VDP display channel and turns that channel's pixel stream into a TMDS
+-	  link.
+-
+-	  If in doubt, say N.
+-- 
+2.53.0
+

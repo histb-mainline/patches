@@ -1,0 +1,47 @@
+Replace-From: David Yang <mmyangfl@gmail.com>
+Replace-Date: Mon, 5 Oct 2026 04:22:08 +0800
+Subject: dt-bindings: arm: document the STB core release and the boards
+
+The Hi3798MV100 and the Hi3716CV200 release their secondary cores
+through the core CRG, so their CPU nodes name that method rather than
+PSCI or a spin-table.
+The shape is the same on both parts: the machine code drops the core
+resets and pulses the begin bit.
+Document the two enable-methods and the boards that use them.
+
+Signed-off-by: David Yang <mmyangfl@gmail.com>
+ 2 files changed, 7 insertions(+)
+
+
+diff --git a/Documentation/devicetree/bindings/arm/cpus.yaml b/Documentation/devicetree/bindings/arm/cpus.yaml
+index 96136b70dacd..d4b0f1e5fbe1 100644
+--- a/Documentation/devicetree/bindings/arm/cpus.yaml
++++ b/Documentation/devicetree/bindings/arm/cpus.yaml
+@@ -269,6 +269,8 @@ properties:
+           - brcm,bcm63138
+           - brcm,bcm-nsp-smp
+           - brcm,brahma-b15
++          - hisilicon,hi3798-smp
++          - hisilicon,hi3716cv200-smp
+           - marvell,armada-375-smp
+           - marvell,armada-380-smp
+           - marvell,armada-390-smp
+diff --git a/Documentation/devicetree/bindings/arm/hisilicon/hisilicon.yaml b/Documentation/devicetree/bindings/arm/hisilicon/hisilicon.yaml
+index 540876322040..6ebbaae2dece 100644
+--- a/Documentation/devicetree/bindings/arm/hisilicon/hisilicon.yaml
++++ b/Documentation/devicetree/bindings/arm/hisilicon/hisilicon.yaml
+@@ -30,6 +30,11 @@ properties:
+           - const: hisilicon,hi3798cv200-poplar
+           - const: hisilicon,hi3798cv200
+ 
++      - description: Hi3798MV100 based boards.
++        items:
++          - const: hisilicon,hi3798mv100-ec6108v9c
++          - const: hisilicon,hi3798mv100
++
+       - description: Hi4511 Board
+         items:
+           - const: hisilicon,hi3620-hi4511
+-- 
+2.53.0
+

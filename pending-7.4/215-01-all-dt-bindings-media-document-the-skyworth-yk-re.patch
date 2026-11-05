@@ -1,0 +1,29 @@
+Replace-From: David Yang <mmyangfl@gmail.com>
+Replace-Date: Tue, 27 Oct 2026 17:43:54 +0800
+Subject: dt-bindings: media: document the Skyworth YK remote keymap
+
+
+The Skyworth YK-series set-top-box remote decodes to NEC extended codes
+that no map in the tree covers.
+Name its keymap in the rc.yaml list so it can be selected from the device
+tree, just like the other keymaps this file enumerates.
+
+Signed-off-by: David Yang <mmyangfl@gmail.com>
+ 1 file changed, 1 insertion(+)
+
+
+diff --git a/Documentation/devicetree/bindings/media/rc.yaml b/Documentation/devicetree/bindings/media/rc.yaml
+index 43d84296e70d..33d8059d0593 100644
+--- a/Documentation/devicetree/bindings/media/rc.yaml
++++ b/Documentation/devicetree/bindings/media/rc.yaml
+@@ -126,6 +126,7 @@ properties:
+       - rc-real-audio-220-32-keys
+       - rc-reddo
+       - rc-siemens-gigaset-rc20
++      - rc-skyworth-yk
+       - rc-snapstream-firefly
+       - rc-streamzap
+       - rc-su3000
+-- 
+2.53.0
+

@@ -1,0 +1,49 @@
+Replace-From: David Yang <mmyangfl@gmail.com>
+Replace-Date: Tue, 27 Oct 2026 16:52:24 +0800
+Subject: MAINTAINERS: add the HiSilicon STB decoder and IR receiver entries
+
+The VDH stateless decoder and the hix5hd2 infrared receiver have no
+maintainer entries.
+Both are media-platform drivers of this family.
+Register each driver with the binding that describes it under linux-media.
+
+Signed-off-by: David Yang <mmyangfl@gmail.com>
+ 1 file changed, 15 insertions(+)
+
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index cda8fffcb989..751eec51a293 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -12087,6 +12087,13 @@ S:	Supported
+ F:	Documentation/admin-guide/perf/hns3-pmu.rst
+ F:	drivers/perf/hisilicon/hns3_pmu.c
+ 
++HISILICON HIX5HD2 INFRARED RECEIVER DRIVER
++M:	David Yang <mmyangfl@gmail.com>
++L:	linux-media@vger.kernel.org
++S:	Maintained
++F:	Documentation/devicetree/bindings/media/hisilicon,hix5hd2-ir.yaml
++F:	drivers/media/rc/ir-hix5hd2.c
++
+ HISILICON I2C CONTROLLER DRIVER
+ M:	Devyn Liu <liudingyuan@h-partners.com>
+ L:	linux-i2c@vger.kernel.org
+@@ -12223,6 +12230,14 @@ F:	Documentation/devicetree/bindings/clock/hisilicon,hisi-crg.yaml
+ F:	drivers/clk/hisilicon/crg-hi3798mv100.c
+ F:	include/dt-bindings/clock/hisilicon,hi3798mv100-*.h
+ 
++HISILICON STB VDH VIDEO DECODER DRIVER
++M:	David Yang <mmyangfl@gmail.com>
++L:	linux-media@vger.kernel.org
++L:	linux-arm-kernel@lists.infradead.org
++S:	Maintained
++F:	Documentation/devicetree/bindings/media/hisilicon,hi3716cv200-vdec.yaml
++F:	drivers/media/platform/hisilicon/histb-vdec/
++
+ HISILICON STB VOLTAGE REGULATOR DRIVER
+ M:	David Yang <mmyangfl@gmail.com>
+ L:	linux-kernel@vger.kernel.org
+-- 
+2.53.0
+

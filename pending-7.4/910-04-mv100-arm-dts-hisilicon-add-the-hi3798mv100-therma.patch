@@ -1,0 +1,86 @@
+Replace-From: Hongfu Yang <yanghf_0@126.com>
+Replace-Date: Mon, 12 Oct 2026 13:22:49 +0800
+Subject: ARM: dts: hisilicon: add the Hi3798MV100 thermal and OPP nodes
+
+The SoC temperature is not visible and the cluster cannot change frequency.
+The on-die tsensor feeds a thermal zone with an 85C passive trip and a
+115C critical one, and cpu0 with the CPU clock, the CPU rail and an
+operating-points table lets cpufreq-dt scale the cluster at the vendor's
+upper-bound voltages.
+Describe the sensor, the zone, the OPP table and mark the CPUs as
+cooling devices.
+
+Signed-off-by: Hongfu Yang <yanghf_0@126.com>
+Signed-off-by: David Yang <mmyangfl@gmail.com>
+ 2 files changed, 37 insertions(+)
+
+
+diff --git a/arch/arm/boot/dts/hisilicon/hi3798mv100-ec6108v9c.dts b/arch/arm/boot/dts/hisilicon/hi3798mv100-ec6108v9c.dts
+index a9e82b922ae6..bdd7661b5ce0 100644
+--- a/arch/arm/boot/dts/hisilicon/hi3798mv100-ec6108v9c.dts
++++ b/arch/arm/boot/dts/hisilicon/hi3798mv100-ec6108v9c.dts
+@@ -5,6 +5,7 @@
+ 
+ /dts-v1/;
+ #include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/thermal/thermal.h>
+ #include "hi3798mv100.dtsi"
+ 
+ / {
+@@ -17,6 +18,36 @@ aliases {
+ 		serial0 = &uart0;
+ 	};
+ 
++	thermal-zones {
++		soc-thermal {
++			polling-delay-passive = <250>;
++			polling-delay = <1000>;
++
++			thermal-sensors = <&tsensor>;
++
++			trips {
++				soc_alert: soc-alert {
++					temperature = <85000>;
++					hysteresis = <5000>;
++					type = "passive";
++				};
++
++				soc_crit: soc-crit {
++					temperature = <115000>;
++					hysteresis = <5000>;
++					type = "critical";
++				};
++			};
++
++			cooling-maps {
++				map0 {
++					trip = <&soc_alert>;
++					cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++				};
++			};
++		};
++	};
++
+ 	chosen {
+ 		stdout-path = "serial0:115200n8";
+ 	};
+diff --git a/arch/arm/boot/dts/hisilicon/hi3798mv100.dtsi b/arch/arm/boot/dts/hisilicon/hi3798mv100.dtsi
+index db2dc64940d3..4b3eacaa24c1 100644
+--- a/arch/arm/boot/dts/hisilicon/hi3798mv100.dtsi
++++ b/arch/arm/boot/dts/hisilicon/hi3798mv100.dtsi
+@@ -105,6 +105,12 @@ jpge: jpeg-encoder@8c90000 {
+ 		status = "disabled";
+ 	};
+ 
++	tsensor: tsensor@8a23028 {
++		compatible = "hisilicon,hi3798mv100-tsensor";
++		reg = <0x8a23028 0x10>;
++		#thermal-sensor-cells = <0>;
++	};
++
+ 	eth0: ethernet@9840000 {
+ 		compatible = "hisilicon,hisi-femac-v2";
+ 		reg = <0x9840000 0x1000>, <0x9841300 0x200>;
+-- 
+2.53.0
+

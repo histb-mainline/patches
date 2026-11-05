@@ -1,0 +1,40 @@
+Replace-From: David Yang <mmyangfl@gmail.com>
+Replace-Date: Mon, 26 Oct 2026 13:36:23 +0800
+Subject: mmc: dw_mmc: wrap the over-long strings
+
+Two format strings in dw_mmc.c run past the 100-column limit; split the
+literals across lines.
+
+The strings keep their content, so the printed messages do not change.
+
+Signed-off-by: David Yang <mmyangfl@gmail.com>
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+
+diff --git a/drivers/mmc/host/dw_mmc.c b/drivers/mmc/host/dw_mmc.c
+index ff0b25d287a9..5bf1423f715f 100644
+--- a/drivers/mmc/host/dw_mmc.c
++++ b/drivers/mmc/host/dw_mmc.c
+@@ -1781,7 +1781,8 @@ static bool dw_mci_reset(struct dw_mci *host)
+ 		/* if the controller reset bit did clear, then set clock regs */
+ 		if (!(mci_readl(host, CTRL) & SDMMC_CTRL_RESET)) {
+ 			dev_err(host->dev,
+-				"%s: fifo/dma reset bits didn't clear but ciu was reset, doing clock update\n",
++				"%s: fifo/dma reset bits didn't clear but ciu was reset, doing "
++				"clock update\n",
+ 				__func__);
+ 			goto ciu_out;
+ 		}
+@@ -3125,7 +3126,8 @@ static int dw_mci_parse_dt(struct dw_mci *host)
+ 
+ 	if (!host->fifo_depth && device_property_read_u32(dev, "fifo-depth", &host->fifo_depth))
+ 		dev_info(dev,
+-			 "fifo-depth property not found, using value of FIFOTH register as default\n");
++			 "fifo-depth property not found, using value of FIFOTH register as "
++			 "default\n");
+ 
+ 	if (!host->detect_delay_ms)
+ 		device_property_read_u32(dev, "card-detect-delay",
+-- 
+2.53.0
+

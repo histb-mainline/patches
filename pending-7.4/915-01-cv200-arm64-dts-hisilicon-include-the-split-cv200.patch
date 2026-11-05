@@ -1,0 +1,33 @@
+Replace-From: Yang Xiwen <forbidden405@outlook.com>
+Replace-Date: Wed, 5 Apr 2023 13:59:16 +0800
+Subject: arm64: dts: hisilicon: include the split cv200 clock headers
+
+One clock header cannot serve every HiSTB SoC, because each CRG provides
+a different set of clocks and resets.
+The Hi3798CV200 ids in histb-clock.h are that part's only.
+Split them into the two CRG-specific headers and switch the consumers,
+this include among them, to the new headers.
+
+Acked-by: Krzysztof Kozlowski <krzysztof.kozlowski@linaro.org>
+Signed-off-by: Yang Xiwen <forbidden405@outlook.com>
+Signed-off-by: David Yang <mmyangfl@gmail.com>
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+
+diff --git a/arch/arm64/boot/dts/hisilicon/hi3798cv200.dtsi b/arch/arm64/boot/dts/hisilicon/hi3798cv200.dtsi
+index e5010c9d4c39..35c3be47f26d 100644
+--- a/arch/arm64/boot/dts/hisilicon/hi3798cv200.dtsi
++++ b/arch/arm64/boot/dts/hisilicon/hi3798cv200.dtsi
+@@ -5,7 +5,8 @@
+  * Copyright (c) 2016-2017 HiSilicon Technologies Co., Ltd.
+  */
+ 
+-#include <dt-bindings/clock/histb-clock.h>
++#include <dt-bindings/clock/hisilicon,hi3798cv200-crg.h>
++#include <dt-bindings/clock/hisilicon,hi3798cv200-sysctrl.h>
+ #include <dt-bindings/gpio/gpio.h>
+ #include <dt-bindings/interrupt-controller/arm-gic.h>
+ #include <dt-bindings/phy/phy.h>
+-- 
+2.53.0
+
