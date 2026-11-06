@@ -3,5 +3,5 @@
 # commit to extract a working tree from:
 #
 #     git -C <kernel source repository> archive <BASE_SHA> | tar -x -C <tree>
-KERNEL_VERSION := 7.4-rc1
-BASE_SHA := 6628e7d4c6b2
+KERNEL_VERSION := 7.4-rc2
+BASE_SHA := fd9230005e85472b81c1c7c16afe93dd878996b1
