@@ -97,7 +97,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/drivers/media/platform/hisilicon/histb-vdec/histb_vdec_v5.h
 @@ -0,0 +1,332 @@
-+/* SPDX-License-Identifier: GPL-2.0-only */
++/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/*
 + * HiSilicon HiSTB V5R6 video decoder, driver contract.
 + *
@@ -432,7 +432,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/drivers/media/platform/hisilicon/histb-vdec/histb_vdec_v5_core.c
 @@ -0,0 +1,718 @@
-+// SPDX-License-Identifier: GPL-2.0-only
++// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * HiSilicon HiSTB V5R6 stateless decoder backend.
 + *
@@ -1153,7 +1153,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/drivers/media/platform/hisilicon/histb-vdec/histb_vdec_v5_drv.c
 @@ -0,0 +1,210 @@
-+// SPDX-License-Identifier: GPL-2.0-only
++// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * HiSilicon HiSTB video decoder driver, V5R6 generation.
 + *
@@ -1366,7 +1366,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/drivers/media/platform/hisilicon/histb-vdec/histb_vdec_v5_h264.c
 @@ -0,0 +1,1408 @@
-+// SPDX-License-Identifier: GPL-2.0-only
++// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * HiSilicon HiSTB V5R6 stateless H.264 decoder.
 + *
@@ -2777,7 +2777,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/drivers/media/platform/hisilicon/histb-vdec/histb_vdec_v5_hw.c
 @@ -0,0 +1,311 @@
-+// SPDX-License-Identifier: GPL-2.0-only
++// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * HiSilicon HiSTB V5R6 decoder: message pool and launch.
 + *
@@ -3091,7 +3091,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/drivers/media/platform/hisilicon/histb-vdec/histb_vdec_v5_regs.h
 @@ -0,0 +1,217 @@
-+/* SPDX-License-Identifier: GPL-2.0-only */
++/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/*
 + * Registers of the HiSilicon HiSTB video decoder, V5R6 generation
 + * (the core the vendor calls HiVDHV5R6C02 on Hi3798MV200H / Hi3798MV310).
@@ -3311,7 +3311,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/drivers/media/platform/hisilicon/histb-vdec/histb_vdec_v5_tables_h264.h
 @@ -0,0 +1,340 @@
-+/* SPDX-License-Identifier: GPL-2.0-only */
++/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/*
 + * CABAC probability-table initialisation image for the V5R6 core.
 + *

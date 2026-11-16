@@ -1,0 +1,41 @@
+From 1784ef9bbd285d47d37ec2b9cbbe00c6f440ff5d Mon Sep 17 00:00:00 2001
+From: yangfl <yangfl@users.noreply.github.com>
+Date: Wed, 18 Nov 2026 02:16:23 +0800
+Subject: [PATCH 1/2] dt-bindings: usb: document the Hi3798M EHCI and OHCI
+ compatibles
+
+The Hi3798MV100 and Hi3798MV200 wire their EHCI and OHCI hosts to a
+shared USB2 port group: one bus clock and one bus reset line feed both
+members of a group, and every suspend transition of either member
+(global suspend, port suspend) stops the functional clock that the
+group's register windows hang off.
+
+Give the four controllers their own compatibles so their drivers can
+keep the group running across system suspend.
+---
+ Documentation/devicetree/bindings/usb/generic-ehci.yaml | 2 ++
+ Documentation/devicetree/bindings/usb/generic-ohci.yaml | 2 ++
+ 2 files changed, 4 insertions(+)
+
+--- a/Documentation/devicetree/bindings/usb/generic-ehci.yaml
++++ b/Documentation/devicetree/bindings/usb/generic-ehci.yaml
+@@ -48,6 +48,8 @@ properties:
+               - brcm,bcm7420-ehci
+               - brcm,bcm7425-ehci
+               - brcm,bcm7435-ehci
++              - hisilicon,hi3798mv100-ehci
++              - hisilicon,hi3798mv200-ehci
+               - hpe,gxp-ehci
+               - ibm,476gtr-ehci
+               - nxp,lpc1850-ehci
+--- a/Documentation/devicetree/bindings/usb/generic-ohci.yaml
++++ b/Documentation/devicetree/bindings/usb/generic-ohci.yaml
+@@ -44,6 +44,8 @@ properties:
+               - brcm,bcm7420-ohci
+               - brcm,bcm7425-ohci
+               - brcm,bcm7435-ohci
++              - hisilicon,hi3798mv100-ohci
++              - hisilicon,hi3798mv200-ohci
+               - hpe,gxp-ohci
+               - ibm,476gtr-ohci
+               - ingenic,jz4740-ohci

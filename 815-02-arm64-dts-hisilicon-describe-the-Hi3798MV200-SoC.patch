@@ -28,11 +28,11 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/arch/arm64/boot/dts/hisilicon/hi3798mv200.dtsi
 @@ -0,0 +1,997 @@
-+// SPDX-License-Identifier: GPL-2.0
++// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * DTS File for HiSilicon Hi3798mv200 SoC.
 + *
-+ * Released under the GPLv2 only.
++ * Released under the GPLv2 or later.
 + */
 +
 +#include <dt-bindings/clock/hisilicon,hi3798mv200-crg.h>
@@ -886,7 +886,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +		};
 +
 +		ohci: usb@9880000 {
-+			compatible = "generic-ohci";
++			compatible = "hisilicon,hi3798mv200-ohci", "generic-ohci";
 +			reg = <0x9880000 0x10000>;
 +			interrupts = <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>;
 +			clocks = <&crg HI3798MV200_USB2_BUS_CLK>,
@@ -898,7 +898,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +		};
 +
 +		ehci: usb@9890000 {
-+			compatible = "generic-ehci";
++			compatible = "hisilicon,hi3798mv200-ehci", "generic-ehci";
 +			reg = <0x9890000 0x10000>;
 +			interrupts = <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>;
 +			clocks = <&crg HI3798MV200_USB2_BUS_CLK>,

@@ -29,7 +29,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 
 --- /dev/null
 +++ b/arch/arm/boot/dts/hisilicon/hi3716cv200.dtsi
-@@ -0,0 +1,1220 @@
+@@ -0,0 +1,1214 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
 +/*
 + * HiSilicon Hi3716CV200 (2x Cortex-A9, 32-bit).
@@ -967,13 +967,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +			 * port that word is HIGMAC_MACIF1_CTRL (the vendor fastboot's
 +			 * register list: index 1 writes MACIF1 at 0xF9843010).
 +			 */
-+			/*
-+			 * Window 2 is the fabric CRF acknowledge threshold the
-+			 * vendor writes first on every bring-up
-+			 * (higmac_hw_mac_core_init()).
-+			 */
-+			reg = <0xf9841000 0x1000>, <0xf9843010 0x4>,
-+			      <0xf9843004 0x4>;
++			reg = <0xf9841000 0x1000>, <0xf9843010 0x4>;
 +			/*
 +			 * GIC interrupt ID 104. Taken from the vendor system's own
 +			 * boot log, where uart-pl011 is 81 -- the value my kernel

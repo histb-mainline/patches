@@ -39,7 +39,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/drivers/media/platform/hisilicon/histb-vdec/histb_vdec_v5_hevc.c
 @@ -0,0 +1,1330 @@
-+// SPDX-License-Identifier: GPL-2.0-only
++// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * HiSilicon HiSTB V5R6 stateless HEVC decoder.
 + *

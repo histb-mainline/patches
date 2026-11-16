@@ -701,7 +701,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +	};
 +
 +	ohci0: usb@9880000 {
-+		compatible = "generic-ohci";
++		compatible = "hisilicon,hi3798mv100-ohci", "generic-ohci";
 +		reg = <0x9880000 0x10000>;
 +		interrupts = <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>;
 +		clocks = <&crg HI3798MV100_USB20_BUS_CLK>,
@@ -716,7 +716,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +	};
 +
 +	ehci0: usb@9890000 {
-+		compatible = "generic-ehci";
++		compatible = "hisilicon,hi3798mv100-ehci", "generic-ehci";
 +		reg = <0x9890000 0x10000>;
 +		interrupts = <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>;
 +		clocks = <&crg HI3798MV100_USB20_BUS_CLK>,
@@ -736,7 +736,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +
 +	/* The second USB2 host pair, and its gate, exist on this part only. */
 +	ohci1: usb@9920000 {
-+		compatible = "generic-ohci";
++		compatible = "hisilicon,hi3798mv100-ohci", "generic-ohci";
 +		reg = <0x9920000 0x10000>;
 +		interrupts = <GIC_SPI 63 IRQ_TYPE_LEVEL_HIGH>;
 +		clocks = <&crg HI3798MV100_USB21_BUS_CLK>,
@@ -751,7 +751,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +	};
 +
 +	ehci1: usb@9930000 {
-+		compatible = "generic-ehci";
++		compatible = "hisilicon,hi3798mv100-ehci", "generic-ehci";
 +		reg = <0x9930000 0x10000>;
 +		interrupts = <GIC_SPI 62 IRQ_TYPE_LEVEL_HIGH>;
 +		clocks = <&crg HI3798MV100_USB21_BUS_CLK>,

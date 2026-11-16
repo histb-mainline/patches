@@ -15,7 +15,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -12196,6 +12196,13 @@ S:	Maintained
+@@ -12197,6 +12197,13 @@ S:	Maintained
  F:	Documentation/devicetree/bindings/mfd/hisilicon,hi6421-spmi-pmic.yaml
  F:	drivers/mfd/hi6421-spmi-pmic.c
  

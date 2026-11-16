@@ -41,7 +41,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/drivers/media/platform/hisilicon/histb-vdec/histb_vdec_v5_mpeg4.c
 @@ -0,0 +1,2078 @@
-+// SPDX-License-Identifier: GPL-2.0-only
++// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * HiSilicon HiSTB V5R6 MPEG-4 part 2 / H.263 short-header decoder.
 + *

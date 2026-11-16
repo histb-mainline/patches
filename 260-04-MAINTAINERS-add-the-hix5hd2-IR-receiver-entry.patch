@@ -16,7 +16,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -12062,6 +12062,13 @@ S:	Supported
+@@ -12063,6 +12063,13 @@ S:	Supported
  F:	Documentation/admin-guide/perf/hns3-pmu.rst
  F:	drivers/perf/hisilicon/hns3_pmu.c
  

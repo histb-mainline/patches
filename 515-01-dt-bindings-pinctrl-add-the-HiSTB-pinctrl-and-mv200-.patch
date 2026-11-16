@@ -86,7 +86,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/Documentation/devicetree/bindings/pinctrl/hisilicon,histb-pinctrl-common.yaml
 @@ -0,0 +1,55 @@
-+# SPDX-License-Identifier: GPL-2.0
++# SPDX-License-Identifier: GPL-2.0-or-later
 +%YAML 1.2
 +---
 +$id: http://devicetree.org/schemas/pinctrl/hisilicon,histb-pinctrl-common.yaml#

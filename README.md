@@ -79,12 +79,9 @@ hard rule; nothing validates the limits):
 | 6xx | 5,000 |
 | 7xx | 20,000 |
 
-(the original 10,000 rung is unused after the flattening; the ladder stays
-250 / 800 / 2,000 / 5,000 / 20,000)
-
 **Inserting a new group**: pick any free number between the neighbours - a
-non-multiple of 5 in the middle is fine (e.g. `307` between `305` and `310`)
-- and leave every other number untouched. Renumbering back onto clean
+non-multiple of 5 in the middle is fine (e.g. `307` between `305` and `310`) -
+and leave every other number untouched. Renumbering back onto clean
 5-multiple spacing happens only when explicitly asked; it is not part of an
 insertion.
 

@@ -63,7 +63,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- a/drivers/media/platform/hisilicon/histb-venc/Makefile
 +++ b/drivers/media/platform/hisilicon/histb-venc/Makefile
 @@ -1,4 +1,9 @@
- # SPDX-License-Identifier: GPL-2.0-only
+ # SPDX-License-Identifier: GPL-2.0-or-later
 +obj-$(CONFIG_VIDEO_HISTB_VENC) += histb-venc.o
  
  histb-venc-y += histb_venc_core.o
@@ -100,7 +100,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/drivers/media/platform/hisilicon/histb-venc/histb_venc_v5.h
 @@ -0,0 +1,326 @@
-+/* SPDX-License-Identifier: GPL-2.0 */
++/* SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * HiSilicon HiSTB V500 encoder driver, internal contract.
 + *
@@ -429,7 +429,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/drivers/media/platform/hisilicon/histb-venc/histb_venc_v5_bitstream.c
 @@ -0,0 +1,676 @@
-+// SPDX-License-Identifier: GPL-2.0
++// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * HiSilicon HiSTB V500 encoder: the syntax the core does not generate.
 + *
@@ -1108,7 +1108,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/drivers/media/platform/hisilicon/histb-venc/histb_venc_v5_drv.c
 @@ -0,0 +1,149 @@
-+// SPDX-License-Identifier: GPL-2.0
++// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * HiSilicon HiSTB V500 encoder: device binding and lifetime.
 + */
@@ -1260,7 +1260,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/drivers/media/platform/hisilicon/histb-venc/histb_venc_v5_hw.c
 @@ -0,0 +1,738 @@
-+// SPDX-License-Identifier: GPL-2.0
++// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * HiSilicon HiSTB V500 encoder: command image and launch.
 + *
@@ -2001,7 +2001,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/drivers/media/platform/hisilicon/histb-venc/histb_venc_v5_regs.h
 @@ -0,0 +1,121 @@
-+/* SPDX-License-Identifier: GPL-2.0 */
++/* SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * HiSilicon HiSTB V500 encoder: register image.
 + *
@@ -2125,7 +2125,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/drivers/media/platform/hisilicon/histb-venc/histb_venc_v5_v4l2.c
 @@ -0,0 +1,1699 @@
-+// SPDX-License-Identifier: GPL-2.0
++// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * HiSilicon HiSTB V500 encoder: the V4L2 mem2mem face.
 + *

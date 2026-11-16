@@ -65,7 +65,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/sound/soc/hisilicon/histb-adac.c
 @@ -0,0 +1,248 @@
-+// SPDX-License-Identifier: GPL-2.0-only
++// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * HiSTB TianLai internal audio DAC (ADAC).
 + *

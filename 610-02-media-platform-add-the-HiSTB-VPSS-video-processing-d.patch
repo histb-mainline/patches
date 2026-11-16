@@ -71,7 +71,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/drivers/media/platform/hisilicon/histb-vpss-regs.h
 @@ -0,0 +1,196 @@
-+/* SPDX-License-Identifier: GPL-2.0-only OR MIT */
++/* SPDX-License-Identifier: GPL-2.0-or-later OR MIT */
 +/*
 + * Register offsets and fields of the Hi3798MV100 VPSS register file.
 + *
@@ -270,7 +270,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/drivers/media/platform/hisilicon/histb-vpss-v4-regs.h
 @@ -0,0 +1,226 @@
-+/* SPDX-License-Identifier: GPL-2.0-only OR MIT */
++/* SPDX-License-Identifier: GPL-2.0-or-later OR MIT */
 +/*
 + * Offsets and fields of the vpss_v4_0 generation's control-plane block, the one
 + * the Hi3798MV200H carries.
@@ -1152,7 +1152,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/drivers/media/platform/hisilicon/histb-vpss.c
 @@ -0,0 +1,2219 @@
-+// SPDX-License-Identifier: GPL-2.0-only OR MIT
++// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
 +/*
 + * histb-vpss.c - HiSilicon HiSTB video processing subsystem, mem2mem form.
 + *

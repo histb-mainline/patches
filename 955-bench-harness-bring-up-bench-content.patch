@@ -30,7 +30,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/arch/arm/mach-hisi/cv200-pmudump.c
 @@ -0,0 +1,417 @@
-+// SPDX-License-Identifier: GPL-2.0
++// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * Bench instrument for the Hi3716CV200 CPU performance monitor.
 + *
@@ -450,7 +450,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/arch/arm64/boot/dts/hisilicon/hi3798mv200h-skyworth-stb-psci.dts
 @@ -0,0 +1,91 @@
-+// SPDX-License-Identifier: GPL-2.0
++// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * PSCI-chain variant of the Skyworth Hi3798MV200H board description.
 + *
@@ -544,7 +544,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/arch/arm64/boot/dts/hisilicon/hi3798mv200h-skyworth-stb-tramp-nowdt.dts
 @@ -0,0 +1,27 @@
-+// SPDX-License-Identifier: GPL-2.0
++// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * DTS for the risky-experiment boot of the Skyworth Hi3798MV200H.
 + *
@@ -574,7 +574,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/arch/arm64/boot/dts/hisilicon/hi3798mv200h-skyworth-stb-tramp.dts
 @@ -0,0 +1,141 @@
-+// SPDX-License-Identifier: GPL-2.0
++// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * Trampoline variant of the Skyworth Hi3798MV200H board description.
 + *
@@ -2290,7 +2290,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/drivers/media/platform/hisilicon/histb-vdec/histb_vdec_v5_probe.c
 @@ -0,0 +1,659 @@
-+// SPDX-License-Identifier: GPL-2.0-only
++// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * Bring-up probe for the HiSilicon HiSTB V5R6 decoder.
 + *
@@ -2952,7 +2952,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/drivers/media/platform/hisilicon/histb-vdec/histb_vdec_v5_probe_data.h
 @@ -0,0 +1,4569 @@
-+/* SPDX-License-Identifier: GPL-2.0-only */
++/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/*
 + * Bring-up stimulus, generated from cav_rich.h264 by
 + * v5r6-mkprobe-data.py: one CAVLC IDR frame of a 320x240

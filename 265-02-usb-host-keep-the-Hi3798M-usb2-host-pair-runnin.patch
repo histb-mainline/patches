@@ -1,0 +1,242 @@
+6c559a0f4105fe7bc48731b649c04c4fce9776af Mon Sep 17 00:00:00 2001
+From: yangfl <yangfl@users.noreply.github.com>
+Date: Wed, 18 Nov 2026 02:17:16 +0800
+Subject: [PATCH 2/2] usb: host: keep the Hi3798M USB2 host pair running across
+ system suspend
+
+The Hi3798MV100 and Hi3798MV200 wire the EHCI and OHCI hosts of a USB2
+port group to one bus clock and one bus reset line, and every suspend
+transition of either member stops the functional clock that the group's
+register windows hang off: the first roothub that enters UsbSuspend or
+suspends a port - be it the global suspend of the root hub, the OHCI
+auto-stop of an idle host, or a plain device port suspend on the EHCI -
+takes the whole group's register windows down, and the next MMIO access
+to any member of the group, usually the other controller's own suspend
+callback, hangs the CPU on the AXI read.
+
+Keep the group running across system suspend on these parts: skip the
+root hub global suspend and the OHCI auto-stop, turn port suspends into
+no-ops, and make the platform suspend and resume callbacks of both hosts
+no-ops, so that nothing stops the group's clocks until the system itself
+goes down.  The dpm walk then gets past the USB2 hosts; on the
+EC6108V9C (Hi3798MV100) board the device suspend walk completes, where
+without this it hung at the first OHCI platform suspend.
+---
+ drivers/usb/host/ehci-hcd.c      |  3 ++-
+ drivers/usb/host/ehci-hub.c      | 10 ++++++++++
+ drivers/usb/host/ehci-platform.c | 17 +++++++++++++++++
+ drivers/usb/host/ehci.h          |  1 +
+ drivers/usb/host/ohci-hub.c      | 10 +++++++++-
+ drivers/usb/host/ohci-platform.c | 17 +++++++++++++++++
+ drivers/usb/host/ohci.h          |  1 +
+ 7 files changed, 57 insertions(+), 2 deletions(-)
+
+--- a/drivers/usb/host/ehci-hcd.c
++++ b/drivers/usb/host/ehci-hcd.c
+@@ -1147,7 +1147,8 @@ int ehci_suspend(struct usb_hcd *hcd, bo
+ 	 * mark HW unaccessible.  The PM and USB cores make sure that
+ 	 * the root hub is either suspended or stopped.
+ 	 */
+-	ehci_prepare_ports_for_controller_suspend(ehci, do_wakeup);
++	if (!ehci->no_rh_suspend)
++		ehci_prepare_ports_for_controller_suspend(ehci, do_wakeup);
+ 
+ 	spin_lock_irq(&ehci->lock);
+ 	ehci_writel(ehci, 0, &ehci->regs->intr_enable);
+--- a/drivers/usb/host/ehci-hub.c
++++ b/drivers/usb/host/ehci-hub.c
+@@ -256,6 +256,10 @@ static int ehci_bus_suspend (struct usb_
+ 	int			changed;
+ 	bool			fs_idle_delay;
+ 
++	/* the paired OHCI's register window dies from our port suspends */
++	if (ehci->no_rh_suspend)
++		return 0;
++
+ 	ehci_dbg(ehci, "suspend root hub\n");
+ 
+ 	if (time_before (jiffies, ehci->next_statechange))
+@@ -420,6 +424,10 @@ static int ehci_bus_resume (struct usb_h
+ 	int			i;
+ 	unsigned long		resume_needed = 0;
+ 
++	/* the root hub never suspended */
++	if (ehci->no_rh_suspend)
++		return 0;
++
+ 	if (time_before (jiffies, ehci->next_statechange))
+ 		msleep(5);
+ 	spin_lock_irq (&ehci->lock);
+@@ -1100,6 +1108,8 @@ int ehci_hub_control(
+ 		case USB_PORT_FEAT_SUSPEND:
+ 			if (ehci->no_selective_suspend)
+ 				break;
++			if (ehci->no_rh_suspend)
++				break;	/* port suspend kills the register window */
+ 			if ((temp & PORT_PE) == 0
+ 					|| (temp & PORT_RESET) != 0)
+ 				goto error;
+--- a/drivers/usb/host/ehci-platform.c
++++ b/drivers/usb/host/ehci-platform.c
+@@ -298,6 +298,9 @@ static int ehci_platform_probe(struct pl
+ 					  "needs-reset-on-resume"))
+ 			priv->reset_on_resume = true;
+ 
++		if (of_device_get_match_data(&dev->dev))
++			ehci->no_rh_suspend = 1;
++
+ 		if (of_property_read_bool(dev->dev.of_node,
+ 					  "has-transaction-translator"))
+ 			hcd->has_tt = 1;
+@@ -441,9 +444,14 @@ static int __maybe_unused ehci_platform_
+ 	struct usb_ehci_pdata *pdata = dev_get_platdata(dev);
+ 	struct platform_device *pdev = to_platform_device(dev);
+ 	struct ehci_platform_priv *priv = hcd_to_ehci_priv(hcd);
++	struct ehci_hcd *ehci = hcd_to_ehci(hcd);
+ 	bool do_wakeup = device_may_wakeup(dev);
+ 	int ret;
+ 
++	/* the whole port group must stay running or its window dies */
++	if (ehci->no_rh_suspend)
++		return 0;
++
+ 	if (priv->quirk_poll)
+ 		quirk_poll_end(priv);
+ 
+@@ -474,9 +482,14 @@ static int __maybe_unused ehci_platform_
+ 	struct usb_ehci_pdata *pdata = dev_get_platdata(dev);
+ 	struct platform_device *pdev = to_platform_device(dev);
+ 	struct ehci_platform_priv *priv = hcd_to_ehci_priv(hcd);
++	struct ehci_hcd *ehci = hcd_to_ehci(hcd);
+ 	struct device *companion_dev;
+ 	int err;
+ 
++	/* the whole port group must stay running or its window dies */
++	if (ehci->no_rh_suspend)
++		return 0;
++
+ 	err = reset_control_deassert(priv->rsts);
+ 	if (err)
+ 		return err;
+@@ -513,6 +526,10 @@ static const struct of_device_id vt8500_
+ 	{ .compatible = "generic-ehci", },
+ 	{ .compatible = "cavium,octeon-6335-ehci", },
+ 	{ .compatible = "aspeed,ast2700-ehci",	.data = (void *)1 },
++	{ .compatible = "hisilicon,hi3798mv100-ehci",
++	  .data = (void *)1, },
++	{ .compatible = "hisilicon,hi3798mv200-ehci",
++	  .data = (void *)1, },
+ 	{}
+ };
+ MODULE_DEVICE_TABLE(of, vt8500_ehci_ids);
+--- a/drivers/usb/host/ehci.h
++++ b/drivers/usb/host/ehci.h
+@@ -226,6 +226,7 @@ struct ehci_hcd {			/* one per controlle
+ 	unsigned		big_endian_capbase:1;
+ 	unsigned		has_amcc_usb23:1;
+ 	unsigned		need_io_watchdog:1;
++	unsigned		no_rh_suspend:1; /* register window dies in suspend */
+ 	unsigned		amd_pll_fix:1;
+ 	unsigned		use_dummy_qh:1;	/* AMD Frame List table quirk*/
+ 	unsigned		has_synopsys_hc_bug:1; /* Synopsys HC */
+--- a/drivers/usb/host/ohci-hub.c
++++ b/drivers/usb/host/ohci-hub.c
+@@ -310,6 +310,8 @@ static int ohci_bus_suspend (struct usb_
+ 
+ 	if (unlikely(!HCD_HW_ACCESSIBLE(hcd)))
+ 		rc = -ESHUTDOWN;
++	else if (ohci->flags & OHCI_QUIRK_NO_RH_SUSPEND)
++		rc = 0;		/* entering UsbSuspend kills the register window */
+ 	else
+ 		rc = ohci_rh_suspend (ohci, 0);
+ 	spin_unlock_irq (&ohci->lock);
+@@ -333,6 +335,8 @@ static int ohci_bus_resume (struct usb_h
+ 
+ 	if (unlikely(!HCD_HW_ACCESSIBLE(hcd)))
+ 		rc = -ESHUTDOWN;
++	else if (ohci->flags & OHCI_QUIRK_NO_RH_SUSPEND)
++		rc = 0;		/* the root hub never suspended */
+ 	else
+ 		rc = ohci_rh_resume (ohci);
+ 	spin_unlock_irq (&ohci->lock);
+@@ -371,7 +375,9 @@ static int ohci_root_hub_state_changes(s
+ 		if (!ohci->autostop) {
+ 			if (any_connected ||
+ 					!device_may_wakeup(&ohci_to_hcd(ohci)
+-						->self.root_hub->dev)) {
++						->self.root_hub->dev) ||
++					(ohci->flags &
++						OHCI_QUIRK_NO_RH_SUSPEND)) {
+ 				if (rhsc_enable)
+ 					poll_rh = 0;
+ 			} else {
+@@ -772,6 +778,8 @@ int ohci_hub_control(
+ 		wIndex--;
+ 		switch (wValue) {
+ 		case USB_PORT_FEAT_SUSPEND:
++			if (ohci->flags & OHCI_QUIRK_NO_RH_SUSPEND)
++				break;	/* port suspend kills the register window */
+ #ifdef	CONFIG_USB_OTG
+ 			if (hcd->self.otg_port == (wIndex + 1)
+ 					&& hcd->self.b_hnp_enable)
+--- a/drivers/usb/host/ohci-platform.c
++++ b/drivers/usb/host/ohci-platform.c
+@@ -139,6 +139,9 @@ static int ohci_platform_probe(struct pl
+ 					  "remote-wakeup-connected"))
+ 			ohci->hc_control = OHCI_CTRL_RWC;
+ 
++		if (of_device_get_match_data(&dev->dev))
++			ohci->flags |= OHCI_QUIRK_NO_RH_SUSPEND;
++
+ 		of_property_read_u32(dev->dev.of_node, "num-ports",
+ 				     &ohci->num_ports);
+ 
+@@ -272,8 +275,13 @@ static int ohci_platform_suspend(struct
+ 	struct platform_device *pdev = to_platform_device(dev);
+ 	struct ohci_platform_priv *priv = hcd_to_ohci_priv(hcd);
+ 	bool do_wakeup = device_may_wakeup(dev);
++	struct ohci_hcd *ohci = hcd_to_ohci(hcd);
+ 	int ret;
+ 
++	/* the whole port group must stay running or its window dies */
++	if (ohci->flags & OHCI_QUIRK_NO_RH_SUSPEND)
++		return 0;
++
+ 	ret = ohci_suspend(hcd, do_wakeup);
+ 	if (ret)
+ 		return ret;
+@@ -298,8 +306,13 @@ static int ohci_platform_resume_common(s
+ 	struct usb_ohci_pdata *pdata = dev_get_platdata(dev);
+ 	struct platform_device *pdev = to_platform_device(dev);
+ 	struct ohci_platform_priv *priv = hcd_to_ohci_priv(hcd);
++	struct ohci_hcd *ohci = hcd_to_ohci(hcd);
+ 	int err;
+ 
++	/* the whole port group must stay running or its window dies */
++	if (ohci->flags & OHCI_QUIRK_NO_RH_SUSPEND)
++		return 0;
++
+ 	err = reset_control_deassert(priv->resets);
+ 	if (err)
+ 		return err;
+@@ -335,6 +348,10 @@ static int ohci_platform_restore(struct
+ static const struct of_device_id ohci_platform_ids[] = {
+ 	{ .compatible = "generic-ohci", },
+ 	{ .compatible = "cavium,octeon-6335-ohci", },
++	{ .compatible = "hisilicon,hi3798mv100-ohci",
++	  .data = (void *)1, },
++	{ .compatible = "hisilicon,hi3798mv200-ohci",
++	  .data = (void *)1, },
+ 	{ .compatible = "ti,ohci-omap3", },
+ 	{ }
+ };
+--- a/drivers/usb/host/ohci.h
++++ b/drivers/usb/host/ohci.h
+@@ -422,6 +422,7 @@ struct ohci_hcd {
+ #define	OHCI_QUIRK_AMD_PREFETCH	0x400			/* pre-fetch for ISO transfer */
+ #define	OHCI_QUIRK_GLOBAL_SUSPEND	0x800		/* must suspend ports */
+ #define	OHCI_QUIRK_QEMU		0x1000			/* relax timing expectations */
++#define	OHCI_QUIRK_NO_RH_SUSPEND	0x2000		/* register window dies in UsbSuspend */
+ 
+ 	// there are also chip quirks/bugs in init logic
+ 

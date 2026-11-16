@@ -21,11 +21,11 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/arch/arm64/boot/dts/hisilicon/hi3798mv200-hc2910-2aghd05.dts
 @@ -0,0 +1,132 @@
-+// SPDX-License-Identifier: GPL-2.0
++// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * DTS File for Skyworth HC2910 with board label 2AGHD05 set-top box.
 + *
-+ * Released under the GPLv2 only.
++ * Released under the GPLv2 or later.
 + */
 +
 +/dts-v1/;

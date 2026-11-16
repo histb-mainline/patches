@@ -1,7 +1,7 @@
 From ee1c8407d410b7ef84006fdc6dd3a5f89acfaeb2 Mon Sep 17 00:00:00 2001
 From: David Yang <mmyangfl@gmail.com>
 Date: Sun, 25 Oct 2026 20:55:06 +0800
-Subject: [PATCH 3/5] watchdog: sp805: arm the counter from a block that can
+Subject: [PATCH 2/4] watchdog: sp805: arm the counter from a block that can
  still count
 
 wdt_config() wrote WDTLOAD, then WDTINTCLR, then WDTCONTROL when not
@@ -25,7 +25,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 
 --- a/drivers/watchdog/sp805_wdt.c
 +++ b/drivers/watchdog/sp805_wdt.c
-@@ -173,18 +173,29 @@ static int wdt_config(struct watchdog_de
+@@ -165,18 +165,29 @@ static int wdt_config(struct watchdog_de
  
  	spin_lock(&wdt->lock);
  

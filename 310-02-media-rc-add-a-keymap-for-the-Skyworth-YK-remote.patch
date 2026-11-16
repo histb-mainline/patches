@@ -22,7 +22,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/drivers/media/rc/keymaps/rc-skyworth-yk.c
 @@ -0,0 +1,79 @@
-+// SPDX-License-Identifier: GPL-2.0
++// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * Keymap for the Skyworth YK-series set-top-box remote (NEC
 + * extended): the leading two bytes are the address, the third

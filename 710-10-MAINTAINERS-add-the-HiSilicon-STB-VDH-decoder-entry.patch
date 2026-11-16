@@ -16,7 +16,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -12233,6 +12233,14 @@ F:	Documentation/devicetree/bindings/clo
+@@ -12234,6 +12234,14 @@ F:	Documentation/devicetree/bindings/clo
  F:	drivers/clk/hisilicon/crg-hi3798mv100.c
  F:	include/dt-bindings/clock/hisilicon,hi3798mv100-*.h
  

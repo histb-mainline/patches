@@ -22,7 +22,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  F:	drivers/gpu/drm/bridge/hi3798mv100-hdmi.c
  F:	drivers/gpu/drm/bridge/sii9134.c
  F:	drivers/gpu/drm/bridge/sii9134.h
-@@ -12043,14 +12043,12 @@ F:	drivers/net/dsa/hirschmann/*
+@@ -12044,14 +12044,12 @@ F:	drivers/net/dsa/hirschmann/*
  F:	include/linux/platform_data/hirschmann-hellcreek.h
  F:	net/dsa/tag_hellcreek.c
  
@@ -38,7 +38,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  F:	sound/soc/hisilicon/histb-aiao-card.c
  F:	sound/soc/hisilicon/histb-aiao-i2s.c
  
-@@ -12238,7 +12236,7 @@ M:	David Yang <mmyangfl@gmail.com>
+@@ -12239,7 +12237,7 @@ M:	David Yang <mmyangfl@gmail.com>
  L:	linux-media@vger.kernel.org
  L:	linux-arm-kernel@lists.infradead.org
  S:	Maintained

@@ -61,7 +61,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/drivers/phy/hisilicon/phy-hi3716cv200-sata.c
 @@ -0,0 +1,203 @@
-+// SPDX-License-Identifier: GPL-2.0-only
++// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * SATA PHY driver for the HiSilicon Hi3716CV200.
 + *

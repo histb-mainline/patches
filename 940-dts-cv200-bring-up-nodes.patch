@@ -255,15 +255,15 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  			 */
  			status = "disabled";
  			reg = <0xf9840000 0x1000>, <0xf984300c 0x4>;
-@@ -944,6 +1024,7 @@
- 			      <0xf9843004 0x4>;
+@@ -938,6 +1018,7 @@
+ 			reg = <0xf9841000 0x1000>, <0xf9843010 0x4>;
  			/*
  			 * GIC interrupt ID 104. Taken from the vendor system's own
 +			 * /proc/interrupts on this board (the vendor system's own
  			 * boot log, where uart-pl011 is 81 -- the value my kernel
  			 * measures for the same device -- so that table is in interrupt
  			 * IDs, not Linux virtual numbers): gmac0 is 103, gmac1 is 104.
-@@ -954,6 +1035,15 @@
+@@ -948,6 +1029,15 @@
  			clocks = <&crg HI3716CV200_GMAC1_CLK>;
  			clock-names = "mac_core";
  			/*
@@ -279,7 +279,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  			 */
  			resets = <&crg 0xcc 11>;
  			reset-names = "mac_ifc";
-@@ -1088,7 +1178,14 @@
+@@ -1082,7 +1172,14 @@
  		};
  
  		/*
@@ -294,7 +294,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  		 */
  		/*
  		 * The output channel (vdp_v1_0 "DHD0"). Its register file is the VDP
-@@ -1178,6 +1275,11 @@
+@@ -1172,6 +1269,11 @@
  	};
  
  	/*
@@ -306,7 +306,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  	 */
  	sound {
  		compatible = "hisilicon,hi3716cv200-aiao-card";
-@@ -1210,6 +1312,8 @@
+@@ -1204,6 +1306,8 @@
  		};
  
  		/*

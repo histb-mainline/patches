@@ -8,10 +8,12 @@ through a system-controller register window, and no mainline framework
 covers it.
 
 Add the generic part: the pin and function descriptions, the per-pin mux
-application, and the three pinctrl ops structures. The ops are exported
-and the file carries module metadata, because the SoC drivers sitting on
-top are separate tristate objects that reference only the ops
-structures, and every =m combination fails to link without them.
+application, the three pinctrl ops structures, and a
+devm_histb_pinctrl_register() helper that takes the chip-specific pin
+and function tables. The SoC drivers sitting on top are separate
+tristate objects, but they hand their tables to the helper instead of
+referencing the ops directly, so the ops stay private and every =m
+combination links.
 
 Signed-off-by: Yang Xiwen <forbidden405@outlook.com>
 Signed-off-by: David Yang <mmyangfl@gmail.com>
@@ -20,9 +22,9 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  drivers/pinctrl/Makefile                  |   1 +
  drivers/pinctrl/hisilicon/Kconfig         |  17 ++
  drivers/pinctrl/hisilicon/Makefile        |   5 +
- drivers/pinctrl/hisilicon/pinctrl-histb.c | 343 ++++++++++++++++++++++
- drivers/pinctrl/hisilicon/pinctrl-histb.h |  73 +++++
- 6 files changed, 440 insertions(+)
+ drivers/pinctrl/hisilicon/pinctrl-histb.c | 387 ++++++++++++++++++++++++++
+ drivers/pinctrl/hisilicon/pinctrl-histb.h | 101 +++++++
+ 6 files changed, 512 insertions(+)
  create mode 100644 drivers/pinctrl/hisilicon/Kconfig
  create mode 100644 drivers/pinctrl/hisilicon/Makefile
  create mode 100644 drivers/pinctrl/hisilicon/pinctrl-histb.c
@@ -78,7 +80,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +obj-$(CONFIG_PINCTRL_HISTB)		+= pinctrl-histb.o
 --- /dev/null
 +++ b/drivers/pinctrl/hisilicon/pinctrl-histb.c
-@@ -0,0 +1,343 @@
+@@ -0,0 +1,387 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * IOCONFIG pinctrl driver for HiSTB SoCs
@@ -88,9 +90,11 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +
 +#include <asm/io.h>
 +#include <linux/bitfield.h>
++#include <linux/device.h>
 +#include <linux/dev_printk.h>
 +#include <linux/kernel.h>
 +#include <linux/module.h>
++#include <linux/slab.h>
 +#include <linux/pinctrl/pinconf-generic.h>
 +#include <linux/pinctrl/pinconf.h>
 +#include <linux/pinctrl/pinctrl.h>
@@ -392,16 +396,15 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +	return 0;
 +}
 +
-+const struct pinctrl_ops histb_pinctrl_pctl_ops = {
++static const struct pinctrl_ops histb_pinctrl_pctl_ops = {
 +	.get_groups_count	= pinctrl_generic_get_group_count,
 +	.get_group_name		= pinctrl_generic_get_group_name,
 +	.get_group_pins		= pinctrl_generic_get_group_pins,
 +	.dt_node_to_map		= pinconf_generic_dt_node_to_map_all,
 +	.dt_free_map		= pinconf_generic_dt_free_map,
 +};
-+EXPORT_SYMBOL_GPL(histb_pinctrl_pctl_ops);
 +
-+const struct pinmux_ops histb_pinctrl_pinmux_ops = {
++static const struct pinmux_ops histb_pinctrl_pinmux_ops = {
 +	.get_functions_count	= pinmux_generic_get_function_count,
 +	.get_function_name	= pinmux_generic_get_function_name,
 +	.get_function_groups	= pinmux_generic_get_function_groups,
@@ -409,22 +412,65 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +	.gpio_request_enable	= histb_pinctrl_gpio_request,
 +	.strict			= true,
 +};
-+EXPORT_SYMBOL_GPL(histb_pinctrl_pinmux_ops);
 +
-+const struct pinconf_ops histb_pinctrl_pinconf_ops = {
++static const struct pinconf_ops histb_pinctrl_pinconf_ops = {
 +	.is_generic			= true,
 +	.pin_config_get			= histb_pinctrl_pinconf_get,
 +	.pin_config_set			= histb_pinctrl_pinconf_set,
 +	.pin_config_config_dbg_show	= pinconf_generic_dump_config,
 +};
-+EXPORT_SYMBOL_GPL(histb_pinctrl_pinconf_ops);
++
++int devm_histb_pinctrl_register(struct device *dev, void __iomem *base,
++				const struct histb_pinctrl_desc *desc)
++{
++	struct pinctrl_desc *pctldesc;
++	struct pinctrl_dev *pctl_dev;
++	int i, ret;
++
++	pctldesc = devm_kzalloc_obj(dev, *pctldesc);
++	if (!pctldesc)
++		return -ENOMEM;
++
++	pctldesc->name = desc->name;
++	pctldesc->owner = THIS_MODULE;
++	pctldesc->pctlops = &histb_pinctrl_pctl_ops;
++	pctldesc->pmxops = &histb_pinctrl_pinmux_ops;
++	pctldesc->confops = &histb_pinctrl_pinconf_ops;
++	pctldesc->pins = desc->pins;
++	pctldesc->npins = desc->npins;
++
++	ret = devm_pinctrl_register_and_init(dev, pctldesc, base, &pctl_dev);
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to register pinctrl device\n");
++
++	for (i = 0; i < pctldesc->npins; i++) {
++		ret = pinctrl_generic_add_group(pctl_dev, pctldesc->pins[i].name,
++						&pctldesc->pins[i].number, 1, NULL);
++		if (ret < 0)
++			return dev_err_probe(dev, ret, "Failed to register group %s\n",
++					     pctldesc->pins[i].name);
++	}
++
++	for (i = 0; i < desc->nfunctions; i++) {
++		const struct histb_pinctrl_function *func = &desc->functions[i];
++
++		ret = pinmux_generic_add_function(pctl_dev, func->name, func->groups,
++						  func->ngroups, NULL);
++		if (ret < 0)
++			return dev_err_probe(dev, ret, "Failed to register function %s\n",
++					     func->name);
++	}
++
++	return pinctrl_enable(pctl_dev);
++}
++EXPORT_SYMBOL_GPL(devm_histb_pinctrl_register);
 +
 +MODULE_AUTHOR("Yang Xiwen <forbidden405@outlook.com>");
 +MODULE_DESCRIPTION("HiSilicon HiSTB ioconfig pinctrl framework");
 +MODULE_LICENSE("GPL");
 --- /dev/null
 +++ b/drivers/pinctrl/hisilicon/pinctrl-histb.h
-@@ -0,0 +1,73 @@
+@@ -0,0 +1,101 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +
 +#include <linux/bitops.h>
@@ -491,10 +537,38 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +	} \
 +}
 +
-+struct pinctrl_ops;
-+struct pinmux_ops;
-+struct pinconf_ops;
++struct device;
++struct pinctrl_pin_desc;
 +
-+extern const struct pinctrl_ops histb_pinctrl_pctl_ops;
-+extern const struct pinmux_ops histb_pinctrl_pinmux_ops;
-+extern const struct pinconf_ops histb_pinctrl_pinconf_ops;
++/**
++ * histb_pinctrl_function - a function shared by a group of pins
++ *
++ * @name: the function name
++ * @groups: the names of the pins that provide the function
++ * @ngroups: the number of entries in @groups
++ */
++struct histb_pinctrl_function {
++	const char *name;
++	const char *const *groups;
++	unsigned int ngroups;
++};
++
++/**
++ * histb_pinctrl_desc - the chip-specific part of a pinctrl device
++ *
++ * @name: the pinctrl device name
++ * @pins: the pin table, each initialized with HISTB_PIN()
++ * @npins: the number of entries in @pins
++ * @functions: the function table
++ * @nfunctions: the number of entries in @functions
++ */
++struct histb_pinctrl_desc {
++	const char *name;
++	const struct pinctrl_pin_desc *pins;
++	unsigned int npins;
++	const struct histb_pinctrl_function *functions;
++	unsigned int nfunctions;
++};
++
++int devm_histb_pinctrl_register(struct device *dev, void __iomem *base,
++				const struct histb_pinctrl_desc *desc);

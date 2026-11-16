@@ -18,8 +18,8 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 ---
  drivers/pinctrl/hisilicon/Kconfig             |  11 +
  drivers/pinctrl/hisilicon/Makefile            |   1 +
- .../pinctrl/hisilicon/pinctrl-hi3798mv2x.c    | 628 ++++++++++++++++++
- 3 files changed, 640 insertions(+)
+ .../pinctrl/hisilicon/pinctrl-hi3798mv2x.c    | 673 ++++++++++++++++++++
+ 3 files changed, 685 insertions(+)
  create mode 100644 drivers/pinctrl/hisilicon/pinctrl-hi3798mv2x.c
 
 --- a/drivers/pinctrl/hisilicon/Kconfig
@@ -49,7 +49,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +obj-$(CONFIG_PINCTRL_HI3798MV2X)	+= pinctrl-hi3798mv2x.o
 --- /dev/null
 +++ b/drivers/pinctrl/hisilicon/pinctrl-hi3798mv2x.c
-@@ -0,0 +1,628 @@
+@@ -0,0 +1,673 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * IOCONFIG driver for Hi3798MV2x SoCs
@@ -65,10 +65,6 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +#include <linux/pinctrl/pinconf-generic.h>
 +#include <linux/pinctrl/pinmux.h>
 +#include <linux/platform_device.h>
-+
-+#include "../core.h"
-+#include "../pinconf.h"
-+#include "../pinmux.h"
 +
 +#include "pinctrl-histb.h"
 +
@@ -188,136 +184,213 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +	HI3798MV2X_FUNCTION_COUNT,
 +};
 +
-+static const char *const hi3798mv2x_pinctrl_function_names[] = {
-+	[HI3798MV2X_GPIO]	= "gpio",
-+	[HI3798MV2X_BOOT_SEL]	= "bootsel",
-+	[HI3798MV2X_CLKOUT_25M]	= "clkout",
-+	[HI3798MV2X_EMMC]	= "emmc",
++static const struct histb_pinctrl_function hi3798mv2x_ioconfig_functions[] = {
++	// all pins can be set to GPIO
++	[HI3798MV2X_GPIO]	= {
++		.name = "gpio",
++	},
++	[HI3798MV2X_BOOT_SEL]	= {
++		.name = "bootsel",
++		.groups = (const char *[]){ "AA20", "C3", "B1", },
++		.ngroups = 3,
++	},
++	[HI3798MV2X_CLKOUT_25M]	= {
++		.name = "clkout",
++		.groups = (const char *[]){ "A5", },
++		.ngroups = 1,
++	},
++	[HI3798MV2X_EMMC]	= {
++		.name = "emmc",
++		.groups = (const char *[]){
++			"V19", "Y21", "W20", "W21", "V20", "V21", "U20", "U21", "T18", "T20", "R20",
++			"R21",
++		},
++		.ngroups = 12,
++	},
 +	/* Fast Ethernet PHY LED */
-+	[HI3798MV2X_FE_LED]	= "fe_led",
-+	[HI3798MV2X_HDMITX]	= "hdmitx",
-+	[HI3798MV2X_I2C_SCL]	= "i2c_scl",
-+	[HI3798MV2X_I2C_SDA]	= "i2c_sda",
-+	[HI3798MV2X_I2S_CLK]	= "i2s_clk",
-+	[HI3798MV2X_I2S_DATA]	= "i2s_data",
-+	[HI3798MV2X_I2S_WS]	= "i2s_ws",
-+	[HI3798MV2X_JTAG]	= "jtag",
-+	[HI3798MV2X_NAND]	= "nand",
-+	[HI3798MV2X_PMC]	= "pmc",
-+	[HI3798MV2X_RGMII]	= "rgmii",
-+	[HI3798MV2X_RMII]	= "rmii",
-+	[HI3798MV2X_SATA]	= "sata",
-+	[HI3798MV2X_SDIO]	= "sdio",
-+	[HI3798MV2X_SIM]	= "sim",
-+	[HI3798MV2X_SPDIF]	= "spdif",
-+	[HI3798MV2X_SPI]	= "spi",
-+	[HI3798MV2X_SPI_FLASH]	= "spi_flash",
++	[HI3798MV2X_FE_LED]	= {
++		.name = "fe_led",
++		.groups = (const char *[]){ "A6", "C6", },
++		.ngroups = 2,
++	},
++	[HI3798MV2X_HDMITX]	= {
++		.name = "hdmitx",
++		.groups = (const char *[]){ "B17", "A17", "C16", "B16", },
++		.ngroups = 4,
++	},
++	[HI3798MV2X_I2C_SCL]	= {
++		.name = "i2c_scl",
++		.groups = (const char *[]){
++			"R19", "K20", "F19", "E19", "C20", "D19",
++		},
++		.ngroups = 6,
++	},
++	[HI3798MV2X_I2C_SDA]	= {
++		.name = "i2c_sda",
++		.groups = (const char *[]){ "P20", "H18", "E20", "D19", "B21", },
++		.ngroups = 5,
++	},
++	[HI3798MV2X_I2S_CLK]	= {
++		.name = "i2s_clk",
++		.groups = (const char *[]){
++			"J20", "H21", "H20", "G19", "F21", "F20", "F19", "E19", "D21", "D19",
++		},
++		.ngroups = 10,
++	},
++	[HI3798MV2X_I2S_DATA]	= {
++		.name = "i2s_data",
++		.groups = (const char *[]){
++			"H21", "H20", "H19", "G20", "F21", "C20", "B21",
++		},
++		.ngroups = 7,
++	},
++	[HI3798MV2X_I2S_WS]	= {
++		.name = "i2s_ws",
++		.groups = (const char *[]){ "J19", "H19", "G19", "E20", "E18", },
++		.ngroups = 5,
++	},
++	[HI3798MV2X_JTAG]	= {
++		.name = "jtag",
++		.groups = (const char *[]){
++			"K20", "K19", "J20", "J19", "H21", "B18",
++		},
++		.ngroups = 6,
++	},
++	[HI3798MV2X_NAND]	= {
++		.name = "nand",
++		.groups = (const char *[]){
++			"Y19", "W19", "AA20", "Y20", "V19", "Y21", "W20", "W21", "V20", "V21",
++			"U20", "U21", "T18", "T19", "T20", "R20", "R21",
++		},
++		.ngroups = 17,
++	},
++	[HI3798MV2X_PMC]	= {
++		.name = "pmc",
++		.groups = (const char *[]){ "P20", "R19", "D5", },
++		.ngroups = 3,
++	},
++	[HI3798MV2X_RGMII]	= {
++		.name = "rgmii",
++		.groups = (const char *[]){
++			"B4", "C4", "A3", "B3", "A2", "B2", "A6", "C6", "C5", "C3", "D4", "D3",
++			"B1", "C2", "C1",
++		},
++		.ngroups = 15,
++	},
++	[HI3798MV2X_RMII]	= {
++		.name = "rmii",
++		.groups = (const char *[]){
++			"B4", "C4", "A3", "B3", "A2", "B2", "C5", "B1", "C2", "C1",
++		},
++		.ngroups = 10,
++	},
++	[HI3798MV2X_SATA]	= {
++		.name = "sata",
++		.groups = (const char *[]){ "K18", "J17", },
++		.ngroups = 2,
++	},
++	[HI3798MV2X_SDIO]	= {
++		.name = "sdio",
++		.groups = (const char *[]){
++			"F20", "F19", "E20", "E19", "D21", "E18", "C20", "D19", "B21", "B4", "C4",
++			"A3", "B3", "A2", "B2", "C5", "C2", "C1",
++		},
++		.ngroups = 18,
++	},
++	[HI3798MV2X_SIM]	= {
++		.name = "sim",
++		.groups = (const char *[]){
++			"K18", "J17", "J18", "H17", "H18", "K20", "K19", "J20", "J19", "H21",
++		},
++		.ngroups = 10,
++	},
++	[HI3798MV2X_SPDIF]	= {
++		.name = "spdif",
++		.groups = (const char *[]){ "C17", },
++		.ngroups = 1,
++	},
++	[HI3798MV2X_SPI]	= {
++		.name = "spi",
++		.groups = (const char *[]){ "K20", "K19", "J20", "J19", },
++		.ngroups = 4,
++	},
++	[HI3798MV2X_SPI_FLASH]	= {
++		.name = "spi_flash",
++		.groups = (const char *[]){
++			"H20", "H19", "G20", "G19", "F21", "F20",
++		},
++		.ngroups = 6,
++	},
 +	/*
 +	 * workaround for pin E19
 +	 *
 +	 * This pin can be either D0 or D1,
 +	 * so the common property is not adequate to select a function
 +	 */
-+	[HI3798MV2X_TSI0_D0]	= "tsi0_d0",
-+	[HI3798MV2X_TSI0_D1]	= "tsi0_d1",
++	[HI3798MV2X_TSI0_D0]	= {
++		.name = "tsi0_d0",
++		.groups = (const char *[]){ "E19", },
++		.ngroups = 1,
++	},
++	[HI3798MV2X_TSI0_D1]	= {
++		.name = "tsi0_d1",
++		.groups = (const char *[]){ "E19", },
++		.ngroups = 1,
++	},
 +	/* DOCSIS */
-+	[HI3798MV2X_TSI0_DATA]	= "tsi0_data",
-+	[HI3798MV2X_TSI1_DATA]	= "tsi1_data",
-+	[HI3798MV2X_TSI2_DATA]	= "tsi2_data",
-+	[HI3798MV2X_TSI3_DATA]	= "tsi3_data",
-+	[HI3798MV2X_TSO]	= "tso",
-+	[HI3798MV2X_TSI_CLK]	= "tsi_clk",
-+	[HI3798MV2X_TSI_SYNC]	= "tsi_sync",
-+	[HI3798MV2X_TSI_VALID]	= "tsi_valid",
-+	[HI3798MV2X_UART]	= "uart",
-+};
-+
-+/* FIXME: use struct pinfunction instead */
-+static const struct {
-+	const char *const *pins;
-+	unsigned int cnt;
-+} hi3798mv2x_ioconfig_function_tbl[] = {
-+	// all pins can be set to GPIO
-+	[HI3798MV2X_GPIO]	= { NULL, 0 },
-+	[HI3798MV2X_BOOT_SEL]	= { (const char *[]){ "AA20", "C3", "B1", }, 3 },
-+	[HI3798MV2X_CLKOUT_25M]	= { (const char *[]){ "A5", }, 1 },
-+	[HI3798MV2X_EMMC]	= {
-+		(const char *[]){
-+			"V19", "Y21", "W20", "W21", "V20", "V21", "U20", "U21", "T18", "T20", "R20",
-+			"R21",
++	[HI3798MV2X_TSI0_DATA]	= {
++		.name = "tsi0_data",
++		.groups = (const char *[]){
++			"K18", "J17", "J18", "H17", "H18", "F19", "E20", "D21", "D19",
 +		},
-+		12
++		.ngroups = 9,
 +	},
-+	[HI3798MV2X_FE_LED]	= { (const char *[]){ "A6", "C6", }, 2 },
-+	[HI3798MV2X_HDMITX]	= { (const char *[]){ "B17", "A17", "C16", "B16", }, 4 },
-+	[HI3798MV2X_I2C_SCL]	= { (const char *[]){
-+			"R19", "K20", "F19", "E19", "C20", "D19", }, 6 },
-+	[HI3798MV2X_I2C_SDA]	= { (const char *[]){ "P20", "H18", "E20", "D19", "B21", }, 5 },
-+	[HI3798MV2X_I2S_CLK]	= {
-+		(const char *[]){
-+			"J20", "H21", "H20", "G19", "F21", "F20", "F19", "E19", "D21", "D19",
++	[HI3798MV2X_TSI1_DATA]	= {
++		.name = "tsi1_data",
++		.groups = (const char *[]){ "J17", "J18", "H19", "G20", "E18", },
++		.ngroups = 5,
++	},
++	[HI3798MV2X_TSI2_DATA]	= {
++		.name = "tsi2_data",
++		.groups = (const char *[]){ "H18", },
++		.ngroups = 1,
++	},
++	[HI3798MV2X_TSI3_DATA]	= {
++		.name = "tsi3_data",
++		.groups = (const char *[]){ "J18", },
++		.ngroups = 1,
++	},
++	[HI3798MV2X_TSO]	= {
++		.name = "tso",
++		.groups = (const char *[]){ "H20", "H19", "G20", "G19", },
++		.ngroups = 4,
++	},
++	[HI3798MV2X_TSI_CLK]	= {
++		.name = "tsi_clk",
++		.groups = (const char *[]){
++			"K18", "H17", "G19", "F19", "D21", "E18", "C20", "B21",
 +		},
-+		10
++		.ngroups = 8,
 +	},
-+	[HI3798MV2X_I2S_DATA]	= { (const char *[]){
-+			"H21", "H20", "H19", "G20", "F21", "C20", "B21", }, 7 },
-+	[HI3798MV2X_I2S_WS]	= { (const char *[]){ "J19", "H19", "G19", "E20", "E18", }, 5 },
-+	[HI3798MV2X_JTAG]	= { (const char *[]){
-+			"K20", "K19", "J20", "J19", "H21", "B18", }, 6 },
-+	[HI3798MV2X_NAND]	= {
-+		(const char *[]){
-+			"Y19", "W19", "AA20", "Y20", "V19", "Y21", "W20", "W21", "V20", "V21",
-+			"U20", "U21", "T18", "T19", "T20", "R20", "R21",
++	[HI3798MV2X_TSI_SYNC]	= {
++		.name = "tsi_sync",
++		.groups = (const char *[]){ "J17", "H19", "E19", },
++		.ngroups = 3,
++	},
++	[HI3798MV2X_TSI_VALID]	= {
++		.name = "tsi_valid",
++		.groups = (const char *[]){
++			"J17", "H17", "H18", "F21", "D21", "E18", "C20",
 +		},
-+		17
++		.ngroups = 7,
 +	},
-+	[HI3798MV2X_PMC]	= { (const char *[]){ "P20", "R19", "D5", }, 3 },
-+	[HI3798MV2X_RGMII]	= {
-+		(const char *[]){
-+			"B4", "C4", "A3", "B3", "A2", "B2", "A6", "C6", "C5", "C3", "D4", "D3",
-+			"B1", "C2", "C1",
-+		},
-+		15
-+	},
-+	[HI3798MV2X_RMII]	= { (const char *[]){
-+			"B4", "C4", "A3", "B3", "A2", "B2", "C5", "B1", "C2", "C1", }, 10 },
-+	[HI3798MV2X_SATA]	= { (const char *[]){ "K18", "J17", }, 2 },
-+	[HI3798MV2X_SDIO]	= {
-+		(const char *[]){
-+			"F20", "F19", "E20", "E19", "D21", "E18", "C20", "D19", "B21", "B4", "C4",
-+			"A3", "B3", "A2", "B2", "C5", "C2", "C1",
-+		},
-+		18
-+	},
-+	[HI3798MV2X_SIM]	= {
-+		(const char *[]){
-+			"K18", "J17", "J18", "H17", "H18", "K20", "K19", "J20", "J19", "H21",
-+		},
-+		10
-+	},
-+	[HI3798MV2X_SPDIF]	= { (const char *[]){ "C17", }, 1 },
-+	[HI3798MV2X_SPI]	= { (const char *[]){ "K20", "K19", "J20", "J19", }, 4 },
-+	[HI3798MV2X_SPI_FLASH]	= { (const char *[]){
-+			"H20", "H19", "G20", "G19", "F21", "F20", }, 6 },
-+	[HI3798MV2X_TSI0_D0]	= { (const char *[]){ "E19", }, 1 },
-+	[HI3798MV2X_TSI0_D1]	= { (const char *[]){ "E19", }, 1 },
-+	[HI3798MV2X_TSI0_DATA]	= { (const char *[]){
-+			"K18", "J17", "J18", "H17", "H18", "F19", "E20", "D21", "D19", }, 9 },
-+	[HI3798MV2X_TSI1_DATA]	= { (const char *[]){ "J17", "J18", "H19", "G20", "E18", }, 5 },
-+	[HI3798MV2X_TSI2_DATA]	= { (const char *[]){ "H18", }, 1 },
-+	[HI3798MV2X_TSI3_DATA]	= { (const char *[]){ "J18", }, 1 },
-+	[HI3798MV2X_TSO]	= { (const char *[]){ "H20", "H19", "G20", "G19", }, 4 },
-+	[HI3798MV2X_TSI_CLK]	= { (const char *[]){
-+			"K18", "H17", "G19", "F19", "D21", "E18", "C20", "B21", }, 8 },
-+	[HI3798MV2X_TSI_SYNC]	= { (const char *[]){ "J17", "H19", "E19", }, 3 },
-+	[HI3798MV2X_TSI_VALID]	= { (const char *[]){
-+			"J17", "H17", "H18", "F21", "D21", "E18", "C20", }, 7 },
 +	[HI3798MV2X_UART]	= {
-+		(const char *[]){
++		.name = "uart",
++		.groups = (const char *[]){
 +			"K18", "J17", "J18", "H17", "K19", "J20", "J19", "H21", "A6", "C6", "D4",
 +			"D3",
 +		},
-+		12
++		.ngroups = 12,
 +	},
 +};
 +
@@ -611,52 +684,24 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +		  HISTB_PIN_FLAG_NOPU | HISTB_PIN_FLAG_NOPD | HISTB_PIN_FLAG_NOSR),
 +};
 +
++static const struct histb_pinctrl_desc hi3798mv2x_ioconfig_desc = {
++	.name		= "hi3798mv2x-ioconfig",
++	.pins		= hi3798mv2x_ioconfig_pins,
++	.npins		= ARRAY_SIZE(hi3798mv2x_ioconfig_pins),
++	.functions	= hi3798mv2x_ioconfig_functions,
++	.nfunctions	= ARRAY_SIZE(hi3798mv2x_ioconfig_functions),
++};
++
 +static int hi3798mv2x_ioconfig_probe(struct platform_device *pdev)
 +{
 +	void __iomem *base;
-+	struct pinctrl_desc *pctldesc;
-+	struct pinctrl_dev *pctl_dev;
-+	struct device *dev = &pdev->dev;
-+	int i, ret;
 +
 +	base = devm_platform_ioremap_resource(pdev, 0);
 +	if (IS_ERR(base))
 +		return PTR_ERR(base);
 +
-+	pctldesc = devm_kzalloc_obj(dev, *pctldesc);
-+	if (!pctldesc)
-+		return -ENOMEM;
-+
-+	pctldesc->name = "hi3798mv2x-ioconfig";
-+	pctldesc->owner = THIS_MODULE;
-+	pctldesc->pctlops = &histb_pinctrl_pctl_ops;
-+	pctldesc->pmxops = &histb_pinctrl_pinmux_ops;
-+	pctldesc->confops = &histb_pinctrl_pinconf_ops;
-+	pctldesc->pins = hi3798mv2x_ioconfig_pins;
-+	pctldesc->npins = ARRAY_SIZE(hi3798mv2x_ioconfig_pins);
-+
-+	ret = devm_pinctrl_register_and_init(dev, pctldesc, base, &pctl_dev);
-+	if (ret)
-+		return dev_err_probe(dev, ret, "Failed to register pinctrl device\n");
-+
-+	for (i = 0; i < pctldesc->npins; i++) {
-+		ret = pinctrl_generic_add_group(pctl_dev, pctldesc->pins[i].name,
-+						&pctldesc->pins[i].number, 1, NULL);
-+		if (ret < 0)
-+			return dev_err_probe(dev, ret,
-+					     "Failed to register groups\n");
-+	}
-+
-+	for (i = 0; i < HI3798MV2X_FUNCTION_COUNT; i++) {
-+		ret = pinmux_generic_add_function(pctl_dev, hi3798mv2x_pinctrl_function_names[i],
-+						  hi3798mv2x_ioconfig_function_tbl[i].pins,
-+						  hi3798mv2x_ioconfig_function_tbl[i].cnt, NULL);
-+		if (ret < 0)
-+			return dev_err_probe(dev, ret,
-+					     "Failed to register functions\n");
-+	}
-+
-+	return pinctrl_enable(pctl_dev);
++	return devm_histb_pinctrl_register(&pdev->dev, base,
++					   &hi3798mv2x_ioconfig_desc);
 +}
 +
 +static const struct of_device_id hi3798mv2x_pinctrl_match[] = {

@@ -33,11 +33,11 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 --- /dev/null
 +++ b/arch/arm64/boot/dts/hisilicon/hi3798mv200h-skyworth-stb.dts
 @@ -0,0 +1,351 @@
-+// SPDX-License-Identifier: GPL-2.0
++// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * DTS File for the Skyworth set-top box built on Hi3798MV200H.
 + *
-+ * Released under the GPLv2 only.
++ * Released under the GPLv2 or later.
 + */
 +
 +/dts-v1/;

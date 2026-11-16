@@ -50,8 +50,8 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +obj-$(CONFIG_DRM_HISTB_HDMI) += histb-hdmi.o
 --- /dev/null
 +++ b/drivers/gpu/drm/histb/histb-hdmi.c
-@@ -0,0 +1,1545 @@
-+// SPDX-License-Identifier: GPL-2.0-only
+@@ -0,0 +1,1559 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * HiSilicon Hi3798MV200 HDMI transmitter
 + *
@@ -158,6 +158,8 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +#define VIDEO_DWSM_CTRL		0x0980
 +#define  DWSM_VERT_BYPASS	BIT(3)
 +#define VIDEO_DATA_ALIGN	0x098c
++#define  DATA_ALIGN_420_DEMUX	BIT(0)
++#define  DATA_ALIGN_PXL_DIV	(DATA_ALIGN_420_DEMUX | BIT(10))
 +#define PACK_FIFO_CTRL		0x1800
 +#define  PACK_FIFO_AUTO_RST_EN	BIT(2)
 +#define  PACK_FIFO_CK_DET_EN	BIT(4)
@@ -642,7 +644,19 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +	 */
 +	histb_hdmi_write(hdmi, VIDEO_DITHER_CTRL, DITHER_MODE_8BIT);
 +	histb_hdmi_write(hdmi, VIDEO_DWSM_CTRL, DWSM_VERT_BYPASS);
-+	histb_hdmi_write(hdmi, VIDEO_DATA_ALIGN, 0);
++	/*
++	 * The data aligner stays in its reset shape at or below 100 MHz -- that
++	 * is the only shape a working 74.25 MHz has ever been seen with.  Above
++	 * it the transmitter emits no TMDS clock at all: 1920x1080@60 (148.5
++	 * MHz) then holds a locked PLL and a valid format detection while the
++	 * sink sees nothing.  Arming the pair the vendor's
++	 * CtrlVideoColorYCbCr420Set() writes -- demux_420_en together with
++	 * pxl_div_en, which its own displaying system holds at 3840x2160@30 --
++	 * is what makes the clock come out at 148.5 MHz.
++	 */
++	histb_hdmi_write(hdmi, VIDEO_DATA_ALIGN,
++			 mode->clock > 100000 ? DATA_ALIGN_PXL_DIV :
++						0);
 +	histb_hdmi_write(hdmi, TIMING_GEN_CTRL,
 +			 histb_hdmi_read(hdmi, TIMING_GEN_CTRL) & ~TG_GEN_EN);
 +	histb_hdmi_write(hdmi, VIDEO_PATH_CTRL, 0);
