@@ -32,7 +32,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  dtb-$(CONFIG_ARCH_HISI) += hip06-d03.dtb
 --- /dev/null
 +++ b/arch/arm64/boot/dts/hisilicon/hi3798mv200h-skyworth-stb.dts
-@@ -0,0 +1,351 @@
+@@ -0,0 +1,350 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * DTS File for the Skyworth set-top box built on Hi3798MV200H.
@@ -341,15 +341,14 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +};
 +
 +/*
-+ * SP805 watchdog 0.  This is the board's self-rescue channel: there is no PSCI
-+ * and no restart handler other than this one on the whole SoC, so without it a
-+ * kernel panic -- or the boot stub hanging before any driver probes -- leaves
-+ * the box silent in a spin loop and only pulling power brings it back to the
-+ * vendor fastboot.  sp805_wdt registers a restart handler at priority 128, and
-+ * the dtsi's resets = <&crg 0x178 4> is the same CRG94 bit 4 the vendor's
-+ * reset_cpu() clears.  timeout-sec is the value Linux boots with; the stub arms
-+ * a longer one to cover the pre-probe window and watchdog_handle_boot_enabled
-+ * then stops it here.
++ * Watchdog 0.  This is the board's self-rescue channel: the SoC's
++ * firmware interface is PSCI (see the dtsi), and on firmwares that do not
++ * implement SYSTEM_RESET -- or when no monitor is running at all -- the
++ * histb-wdt restart handler is the only reset path left, so without it a
++ * kernel panic leaves the box silent in a spin loop and only pulling
++ * power brings it back to the vendor fastboot.  timeout-sec is the value
++ * the first open arms the counter with; until then the block just holds
++ * whatever the earlier boot stages left in it.
 + */
 +&wdg0 {
 +	status = "okay";

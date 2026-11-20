@@ -1,0 +1,234 @@
+From bb1653bcd52e0283bfb92588c9ecda3ed9e6aec5 Mon Sep 17 00:00:00 2001
+From: David Yang <mmyangfl@gmail.com>
+Date: Thu, 5 Nov 2026 00:11:26 +0800
+Subject: [PATCH 2/6] pwm: histb: add PMOC PWM driver
+
+Add a driver for the PWM outputs of the PMOC block on the HiSilicon
+Hi3798cv200 STB SoC, as described by the hisilicon,hi3798cv200-pwm
+binding. The converters they feed are described with the generic
+pwm-regulator binding.
+
+The number of outputs is SoC specific, so it is carried by the match
+data and the register window has to cover all of them. The name
+conventions follow those of pcie-histb.c.
+
+Signed-off-by: David Yang <mmyangfl@gmail.com>
+---
+ MAINTAINERS             |   8 ++
+ drivers/pwm/Kconfig     |  11 +++
+ drivers/pwm/Makefile    |   1 +
+ drivers/pwm/pwm-histb.c | 161 ++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 181 insertions(+)
+ create mode 100644 drivers/pwm/pwm-histb.c
+
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -12194,6 +12194,14 @@ S:	Maintained
+ F:	Documentation/devicetree/bindings/mfd/hisilicon,hi6421-spmi-pmic.yaml
+ F:	drivers/mfd/hi6421-spmi-pmic.c
+ 
++HISILICON STB PWM DRIVER
++M:	David Yang <mmyangfl@gmail.com>
++L:	linux-pwm@vger.kernel.org
++L:	linux-kernel@vger.kernel.org
++S:	Maintained
++F:	Documentation/devicetree/bindings/pwm/hisilicon,hi3798cv200-pwm.yaml
++F:	drivers/pwm/pwm-histb.c
++
+ HISILICON TRUE RANDOM NUMBER GENERATOR V2 SUPPORT
+ M:	Weili Qian <qianweili@huawei.com>
+ S:	Maintained
+--- a/drivers/pwm/Kconfig
++++ b/drivers/pwm/Kconfig
+@@ -292,6 +292,17 @@ config PWM_HIBVT
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called pwm-hibvt.
+ 
++config PWM_HISTB
++	tristate "HiSilicon STB PMOC PWM support"
++	depends on ARCH_HISI || COMPILE_TEST
++	depends on HAS_IOMEM
++	help
++	  Generic PWM framework driver for the PMOC outputs of the HiSilicon
++	  Hi3798cv200 STB SoC.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called pwm-histb.
++
+ config PWM_IMG
+ 	tristate "Imagination Technologies PWM driver"
+ 	depends on HAS_IOMEM
+--- a/drivers/pwm/Makefile
++++ b/drivers/pwm/Makefile
+@@ -24,6 +24,7 @@ obj-$(CONFIG_PWM_EP93XX)	+= pwm-ep93xx.o
+ obj-$(CONFIG_PWM_FSL_FTM)	+= pwm-fsl-ftm.o
+ obj-$(CONFIG_PWM_GPIO)		+= pwm-gpio.o
+ obj-$(CONFIG_PWM_HIBVT)		+= pwm-hibvt.o
++obj-$(CONFIG_PWM_HISTB)		+= pwm-histb.o
+ obj-$(CONFIG_PWM_IMG)		+= pwm-img.o
+ obj-$(CONFIG_PWM_IMX1)		+= pwm-imx1.o
+ obj-$(CONFIG_PWM_IMX27)		+= pwm-imx27.o
+--- /dev/null
++++ b/drivers/pwm/pwm-histb.c
+@@ -0,0 +1,161 @@
++// SPDX-License-Identifier: MIT OR GPL-2.0-or-later
++/*
++ * PWM driver for the PMOC outputs of the HiSilicon Hi3798cv200 STB SoC
++ *
++ * Copyright (c) 2026 David Yang
++ */
++
++#include <linux/bitfield.h>
++#include <linux/clk.h>
++#include <linux/io.h>
++#include <linux/math64.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++#include <linux/pwm.h>
++
++/*
++ * Both fields are programmed as the number of clock periods plus one, so
++ * a field of one selects an empty counter range and leaves the output in a
++ * single state for the whole period. The outputs have no gate.
++ *
++ * The counter field counts the high phase of the period: the vendor
++ * miniboot programs 0x006500a1 (counter 0x65, period 0xa1, a 62.5% high
++ * duty) for the 900 mV point of the reference DVFS design, whose feedback
++ * network (Hi3798M V200 data sheet, section 3.2.7) lowers the rail voltage
++ * as the duty cycle rises.
++ */
++#define HISTB_PWM_DUTY		GENMASK(31, 16)
++#define HISTB_PWM_PERIOD	GENMASK(15, 0)
++#define HISTB_PWM_STRIDE	4
++
++/* The largest count a field can still express. */
++#define HISTB_PWM_COUNT_MAX	(U16_MAX - 1)
++
++/* PWM0 on pin PMC_CPU0, PWM1 on PMC_CORE0, PWM2 on PMC_GPU0. */
++#define HI3798CV200_NUM_PWMS		3
++
++struct histb_pwm {
++	void __iomem *base;
++	unsigned long rate;
++};
++
++static void __iomem *histb_pwm_reg(struct histb_pwm *histb, unsigned int index)
++{
++	return histb->base + index * HISTB_PWM_STRIDE;
++}
++
++static unsigned int histb_pwm_count_from_field(u32 field)
++{
++	return field != 0 ? field - 1 : 0;
++}
++
++static int histb_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
++			   const struct pwm_state *state)
++{
++	struct histb_pwm *histb = pwmchip_get_drvdata(chip);
++	unsigned int duty, period;
++
++	/* Bounds both the multiplication below and the fields themselves. */
++	if (state->period > DIV_ROUND_DOWN_ULL((u64) HISTB_PWM_COUNT_MAX *
++					       NSEC_PER_SEC, histb->rate))
++		return -EINVAL;
++
++	period = DIV_ROUND_CLOSEST_ULL((u64) state->period * histb->rate,
++				       NSEC_PER_SEC);
++	if (period == 0)
++		return -EINVAL;
++
++	duty = DIV_ROUND_CLOSEST_ULL((u64) state->duty_cycle * histb->rate,
++				     NSEC_PER_SEC);
++	if (duty > period)
++		duty = period;
++
++	writel(FIELD_PREP(HISTB_PWM_PERIOD, period + 1) |
++	       FIELD_PREP(HISTB_PWM_DUTY, duty + 1),
++	       histb_pwm_reg(histb, pwm->hwpwm));
++
++	return 0;
++}
++
++static int histb_pwm_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
++			       struct pwm_state *state)
++{
++	struct histb_pwm *histb = pwmchip_get_drvdata(chip);
++	unsigned int counter, duty, period;
++	u32 val;
++
++	val = readl(histb_pwm_reg(histb, pwm->hwpwm));
++	period = histb_pwm_count_from_field(FIELD_GET(HISTB_PWM_PERIOD, val));
++	counter = histb_pwm_count_from_field(FIELD_GET(HISTB_PWM_DUTY, val));
++
++	duty = counter > period ? period : counter;
++
++	state->enabled = true;
++	state->polarity = PWM_POLARITY_NORMAL;
++	state->period = DIV_ROUND_CLOSEST_ULL((u64) period * NSEC_PER_SEC,
++					      histb->rate);
++	state->duty_cycle = DIV_ROUND_CLOSEST_ULL((u64) duty * NSEC_PER_SEC,
++						  histb->rate);
++
++	return 0;
++}
++
++static const struct pwm_ops histb_pwm_ops = {
++	.apply = histb_pwm_apply,
++	.get_state = histb_pwm_get_state,
++};
++
++static int histb_pwm_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	unsigned int num_pwms = (uintptr_t) of_device_get_match_data(dev);
++	struct resource *res;
++	struct pwm_chip *chip;
++	struct histb_pwm *histb;
++	struct clk *clk;
++
++	chip = devm_pwmchip_alloc(dev, num_pwms, sizeof(*histb));
++	if (IS_ERR(chip))
++		return PTR_ERR(chip);
++	histb = pwmchip_get_drvdata(chip);
++
++	histb->base = devm_platform_get_and_ioremap_resource(pdev, 0, &res);
++	if (IS_ERR(histb->base))
++		return PTR_ERR(histb->base);
++
++	if (resource_size(res) < num_pwms * HISTB_PWM_STRIDE)
++		return dev_err_probe(dev, -EINVAL, "short register window\n");
++
++	clk = devm_clk_get_enabled(dev, NULL);
++	if (IS_ERR(clk))
++		return PTR_ERR(clk);
++
++	histb->rate = clk_get_rate(clk);
++	if (histb->rate == 0)
++		return dev_err_probe(dev, -EINVAL, "missing clock rate\n");
++
++	chip->ops = &histb_pwm_ops;
++
++	return devm_pwmchip_add(dev, chip);
++}
++
++static const struct of_device_id histb_pwm_of_match[] = {
++	{ .compatible = "hisilicon,hi3798cv200-pwm",
++	  .data = (void *) HI3798CV200_NUM_PWMS },
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, histb_pwm_of_match);
++
++static struct platform_driver histb_pwm_driver = {
++	.probe = histb_pwm_probe,
++	.driver = {
++		.name = "histb-pwm",
++		.of_match_table = histb_pwm_of_match,
++	},
++};
++module_platform_driver(histb_pwm_driver);
++
++MODULE_DESCRIPTION("HiSilicon STB PMOC PWM driver");
++MODULE_AUTHOR("David Yang <mmyangfl@gmail.com>");
++MODULE_LICENSE("Dual MIT/GPL");

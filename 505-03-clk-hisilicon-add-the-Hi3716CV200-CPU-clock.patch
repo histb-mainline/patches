@@ -1,0 +1,269 @@
+From 22be23329370975571820ccf6adb6493b042035c Mon Sep 17 00:00:00 2001
+From: David Yang <mmyangfl@gmail.com>
+Date: Mon, 23 Nov 2026 07:06:00 +0800
+Subject: [PATCH 3/3] clk: hisilicon: add the Hi3716CV200 CPU clock
+
+The cluster frequency has no clock a cpufreq policy can drive, so the
+five gears this part is documented with stay unreachable and the
+operating points have nothing to scale.
+
+Model PERI_CRG18 as a mux over the vendor's selector encodings. Both
+bypass bits are set before each switch, because that is what makes the
+software strobe adopted here, and the switch is glitch-free, so the rate
+changes while the cores run from it. Report the rate from CRG85's
+adopted-selector field instead of from CRG18: the board arrived with
+1.2GHz requested and 600MHz adopted, because the boot chain can hand
+over a switch it never finished, so the request register alone is not a
+description of the running clock. CRG96's memory delay travels with the
+switch, as the vendor programs one word up to 800MHz and the word the
+boot chain left above it, and the board shows exactly those two across a
+gear change. An unknown selector reports the slowest documented gear,
+because a 0 rate is what every user of the clock would then read.
+
+Signed-off-by: David Yang <mmyangfl@gmail.com>
+---
+ drivers/clk/hisilicon/crg-hi3716cv200.c | 226 ++++++++++++++++++++++++
+ 1 file changed, 226 insertions(+)
+
+--- a/drivers/clk/hisilicon/crg-hi3716cv200.c
++++ b/drivers/clk/hisilicon/crg-hi3716cv200.c
+@@ -718,6 +718,228 @@ static int hi3716cv200_clk_register_hd(s
+ }
+ 
+ /*
++ * The cluster clock.  PERI_CRG18 picks which of the fixed dividers fed by the
++ * CPU PLL drives the Cortex-A9s.  Both bypass bits have to be set for the
++ * software strobe to be adopted, so they are written before every switch
++ * rather than trusted from the boot chain, and the divider field is left where
++ * the boot put it: behind its bypass nothing reads it.
++ *
++ * CRG85 reports which selector the hardware actually adopted, and that is what
++ * recalc reads: the board was handed over by the boot chain with CRG18 asking
++ * for 1.2GHz while CRG85 said 600MHz, so the request register is not a
++ * description of the running clock.  That the adopted selector tracks the
++ * cores, and not just the register, is what the gear table below is built on:
++ * the same compute-bound load takes 2.47s at the 400MHz selector and 0.83s at
++ * the 1.2GHz one.
++ */
++#define CRG_CPU			0x48
++#define  CRG_CPU_FREQ_SEL	GENMASK(2, 0)
++#define  CRG_CPU_DIV_CFG_BYPASS	BIT(8)
++#define  CRG_CPU_BEGIN_CFG_BYPASS	BIT(9)
++#define  CRG_CPU_SW_BEGIN_CFG	BIT(10)
++
++#define CRG_CPU_STATUS		0x154
++#define  CRG_CPU_SW_OK		BIT(0)
++#define  CRG_CPU_MUX		GENMASK(3, 1)
++
++/*
++ * CRG96 holds the memory interface delay words.  Only two words are ever
++ * seen on this board: the vendor writes the one below up to 800MHz and
++ * restores what the boot chain left above it.  No source decodes the fields,
++ * so both words travel whole.
++ */
++#define CRG_MEM_DELAY		0x180
++#define  CRG_MEM_DELAY_LOW	0x009aaaaf
++#define  CRG_MEM_DELAY_LOW_MAX	800000000
++
++struct hi3716cv200_cpu_rate {
++	u32		sel;
++	unsigned long	rate;
++};
++
++/*
++ * The selector encodings are the vendor's (msp/drv/pm/clock_mpu.c).  Selector 2
++ * has no documented encoding, and the 1.5GHz and 24MHz rows are left out
++ * because this part is rated from 400MHz to 1.2GHz.
++ */
++static const struct hi3716cv200_cpu_rate hi3716cv200_cpu_rates[] = {
++	{ 6,   400000000, },
++	{ 7,   600000000, },
++	{ 1,   800000000, },
++	{ 0,  1000000000, },	/* what the vendor calls the APLL path */
++	{ 5,  1200000000, },
++};
++
++struct hi3716cv200_clk_cpu {
++	struct clk_hw	hw;
++	void __iomem	*reg;
++	void __iomem	*status_reg;
++	void __iomem	*delay_reg;
++	u32		delay_high;
++};
++
++#define to_hi3716cv200_clk_cpu(_hw) \
++	container_of(_hw, struct hi3716cv200_clk_cpu, hw)
++
++static int hi3716cv200_cpu_mux(struct hi3716cv200_clk_cpu *clk)
++{
++	u32 val = readl_relaxed(clk->status_reg);
++
++	return FIELD_GET(CRG_CPU_MUX, val);
++}
++
++static unsigned long hi3716cv200_cpu_recalc_rate(struct clk_hw *hw,
++						 unsigned long parent_rate)
++{
++	struct hi3716cv200_clk_cpu *clk = to_hi3716cv200_clk_cpu(hw);
++	int mux = hi3716cv200_cpu_mux(clk);
++	u32 sel = FIELD_GET(CRG_CPU_FREQ_SEL, readl_relaxed(clk->reg));
++	unsigned int i;
++
++	/*
++	 * The boot chain can hand over a switch it never finished, which is how
++	 * this board arrived with the request register at 1.2GHz and the adopted
++	 * mux at 600MHz.  Say so once; the rate reported below is the adopted
++	 * one either way.
++	 */
++	if (mux != (int)sel)
++		pr_warn_once("hi3716cv200: CPU clock runs on selector %d while %u is requested\n",
++			     mux, sel);
++
++	for (i = 0; i < ARRAY_SIZE(hi3716cv200_cpu_rates); i++)
++		if (hi3716cv200_cpu_rates[i].sel == mux)
++			return hi3716cv200_cpu_rates[i].rate;
++
++	/*
++	 * An undocumented selector still means the cores are running, so the
++	 * slowest documented gear is reported instead of 0: the clock core
++	 * caches whatever recalc says, a policy built on a 0 rate is reported
++	 * as 0 everywhere, and a low claim is the one that cannot overstate
++	 * what the cluster runs at.
++	 */
++	pr_warn_once("hi3716cv200: unexpected CPU clock selector %d, assuming %lu Hz\n",
++		     mux, hi3716cv200_cpu_rates[0].rate);
++
++	return hi3716cv200_cpu_rates[0].rate;
++}
++
++static int hi3716cv200_cpu_determine_rate(struct clk_hw *hw,
++					  struct clk_rate_request *req)
++{
++	unsigned long best = ~0UL, diff;
++	int i, found = -1;
++
++	for (i = 0; i < ARRAY_SIZE(hi3716cv200_cpu_rates); i++) {
++		unsigned long want = hi3716cv200_cpu_rates[i].rate;
++
++		if (want < req->min_rate || want > req->max_rate)
++			continue;
++
++		diff = want > req->rate ? want - req->rate : req->rate - want;
++		if (diff < best) {
++			best = diff;
++			found = i;
++		}
++	}
++
++	if (found < 0)
++		return -EINVAL;
++
++	req->rate = hi3716cv200_cpu_rates[found].rate;
++
++	return 0;
++}
++
++static int hi3716cv200_cpu_set_rate(struct clk_hw *hw, unsigned long rate,
++				    unsigned long parent_rate)
++{
++	struct hi3716cv200_clk_cpu *clk = to_hi3716cv200_clk_cpu(hw);
++	unsigned long best = ~0UL, diff, chosen = 0;
++	u32 val, sel = 0;
++	unsigned int i;
++
++	/*
++	 * The operating points give exact rates; taking the closest gear keeps
++	 * a request between two of them on a documented encoding instead of
++	 * failing it.
++	 */
++	for (i = 0; i < ARRAY_SIZE(hi3716cv200_cpu_rates); i++) {
++		unsigned long want = hi3716cv200_cpu_rates[i].rate;
++
++		diff = rate > want ? rate - want : want - rate;
++		if (diff < best) {
++			best = diff;
++			sel = hi3716cv200_cpu_rates[i].sel;
++			chosen = want;
++		}
++	}
++
++	writel_relaxed(chosen <= CRG_MEM_DELAY_LOW_MAX ? CRG_MEM_DELAY_LOW :
++		       clk->delay_high, clk->delay_reg);
++
++	val = readl_relaxed(clk->reg) | CRG_CPU_DIV_CFG_BYPASS |
++	      CRG_CPU_BEGIN_CFG_BYPASS;
++	writel_relaxed(val & ~CRG_CPU_SW_BEGIN_CFG, clk->reg);
++
++	val = (val & ~CRG_CPU_FREQ_SEL) | FIELD_PREP(CRG_CPU_FREQ_SEL, sel);
++	writel_relaxed(val, clk->reg);
++
++	writel_relaxed(val | CRG_CPU_SW_BEGIN_CFG, clk->reg);
++
++	/*
++	 * Say what the hardware adopted, but keep the requested rate as the
++	 * clock's rate: the request register does change either way, and a
++	 * failed switch is this board's boot-chain state rather than something
++	 * a caller can act on.
++	 */
++	if (!(readl_relaxed(clk->status_reg) & CRG_CPU_SW_OK) ||
++	    hi3716cv200_cpu_mux(clk) != (int)sel)
++		pr_warn_ratelimited("hi3716cv200: CPU clock switch to %lu Hz not adopted\n",
++				    chosen);
++
++	return 0;
++}
++
++static const struct clk_ops hi3716cv200_cpu_clk_ops = {
++	.recalc_rate = hi3716cv200_cpu_recalc_rate,
++	.determine_rate = hi3716cv200_cpu_determine_rate,
++	.set_rate = hi3716cv200_cpu_set_rate,
++};
++
++static int hi3716cv200_clk_register_cpu(struct device *dev, void __iomem *base,
++				       struct hisi_clock_data *data)
++{
++	struct hi3716cv200_clk_cpu *clk;
++	struct clk_init_data init = {};
++	struct clk *clk_out;
++
++	clk = devm_kzalloc_obj(dev, *clk);
++	if (!clk)
++		return -ENOMEM;
++
++	init.name = "clk_cpu";
++	init.ops = &hi3716cv200_cpu_clk_ops;
++	clk->reg = base + CRG_CPU;
++	clk->status_reg = base + CRG_CPU_STATUS;
++	/*
++	 * The word used above 800MHz is whatever the boot chain trained to, so
++	 * it is read here, before this clock has moved anything.
++	 */
++	clk->delay_reg = base + CRG_MEM_DELAY;
++	clk->delay_high = readl_relaxed(clk->delay_reg);
++	clk->hw.init = &init;
++
++	clk_out = devm_clk_register(dev, &clk->hw);
++	if (IS_ERR(clk_out))
++		return dev_err_probe(dev, PTR_ERR(clk_out),
++				     "failed to register clock clk_cpu\n");
++
++	data->clk_data.clks[HI3716CV200_CPU_FREQ_SEL_CFG_CRG] = clk_out;
++
++	return 0;
++}
++
++/*
+  * CRG70's audio clock divider feeds the AIAO block's incoming clock. It is
+  * programmed once per power-up: loaden low, skipcfg = 0x10, loaden high to
+  * latch. The shared aiao_v1_1 HAL does exactly this on this chip too, and
+@@ -770,6 +992,10 @@ static struct hisi_clock_data *hi3716cv2
+ 	if (ret)
+ 		return ERR_PTR(ret);
+ 
++	ret = hi3716cv200_clk_register_cpu(dev, clk_data->base, clk_data);
++	if (ret)
++		return ERR_PTR(ret);
++
+ 	hi3716cv200_setup_aiaoclk(clk_data->base);
+ 
+ 	ret = of_clk_add_provider(pdev->dev.of_node, of_clk_src_onecell_get,

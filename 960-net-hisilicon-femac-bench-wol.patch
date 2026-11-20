@@ -1,0 +1,178 @@
+From fccf4f7c2eea53254e91d4312bae0a5cffa959b6 Mon Sep 17 00:00:00 2001
+From: David Yang <mmyangfl@gmail.com>
+Date: Wed, 18 Nov 2026 23:53:10 +0800
+Subject: [PATCH] net: hisilicon: femac bench WoL via the PMT block
+
+[BOARD-TEST] bench-only, not for submission.  Suspended wake stays the
+plain RX IRQ of ordinary traffic: the PMT wake-event path never fires on
+this silicon (status bits do not latch for the filter framework, the
+magic detector, or the magic detector inside power-down -- probed live
+2026-11-18, three arms against real packets), so WAKE_MAGIC here is a
+made-up name for an unselective wake and only pays off on a silent
+segment.  The filter framework and its CRC16 programming were probed
+and judged dead on the board, so they are deliberately not here; see
+the ledger for the verdict and the suspend-entry discipline (serial
+console + network silence, an ssh-triggered suspend wakes itself).
+
+get_wol/set_wol arm the PMT magic-detector bit; the suspend path moves
+off the legacy pm_message_t hooks to dev_pm_ops and, with WoL armed,
+keeps every clock on (the "phy" clock is the PHY's reference) and arms
+the MAC IRQ as a wake source instead of closing the netdev.
+
+Signed-off-by: David Yang <mmyangfl@gmail.com>
+---
+ drivers/net/ethernet/hisilicon/hisi_femac.c |   87 ++++++++++++++++++++++++---
+ 1 file changed, 77 insertions(+), 10 deletions(-)
+
+--- a/drivers/net/ethernet/hisilicon/hisi_femac.c
++++ b/drivers/net/ethernet/hisilicon/hisi_femac.c
+@@ -67,6 +67,17 @@
+ #define IRQ_ENA_PORT0			BIT(18)
+ #define IRQ_ENA_ALL			BIT(19)
+ #define GLB_IRQ_RAW			0x0038
++/* [BOARD-TEST] MAC-side WoL, vendor hieth/pm.c.  The PMT block sits in the
++ * port window at 0x500 (verified readable on this board).  The PMT wake-event
++ * path never fires on this silicon -- the status bits do not latch for the
++ * filter framework, the magic detector, or the magic detector inside
++ * power-down (probed live 2026-11-18) -- so WAKE_MAGIC here means the plain
++ * RX IRQ of ordinary traffic while suspended, unselective by
++ * construction.
++ */
++#define PMT_CTRL			0x0500
++#define PMT_MAGIC_WAKEUP			BIT(1)
++#define PMT_IRQ_STATUS_CLR		GENMASK(6, 5)
+ #define IRQ_INT_RX_RDY			BIT(0)
+ #define IRQ_INT_TX_PER_PACKET		BIT(1)
+ #define IRQ_INT_TX_FIFO_EMPTY		BIT(6)
+@@ -110,6 +121,8 @@ struct hisi_femac_queue {
+ struct hisi_femac_priv {
+ 	void __iomem *port_base;
+ 	void __iomem *glb_base;
++	/* [BOARD-TEST] cache of the PMT state for the suspend path */
++	bool wol_enabled;
+ 	struct clk_bulk_data *clks;
+ 	int num_clks;
+ 	struct reset_control *mac_rst;
+@@ -678,8 +691,42 @@ static void hisi_femac_net_set_rx_mode(s
+ 	}
+ }
+ 
++/* [BOARD-TEST] WoL through the PMT block.  The filter framework and its
++ * CRC16 programming were probed live and never raise a wake event (see the
++ * PMT_CTRL note), so arming stays at the magic-detector bit only.
++ */
++static void femac_get_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
++{
++	struct hisi_femac_priv *priv = netdev_priv(ndev);
++	u32 v = readl(priv->port_base + PMT_CTRL);
++
++	wol->supported = WAKE_MAGIC;
++	wol->wolopts = (v & PMT_MAGIC_WAKEUP) ? WAKE_MAGIC : 0;
++}
++
++static int femac_set_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
++{
++	struct hisi_femac_priv *priv = netdev_priv(ndev);
++	u32 v;
++
++	if (wol->wolopts & ~WAKE_MAGIC)
++		return -EOPNOTSUPP;
++
++	if (wol->wolopts & WAKE_MAGIC)
++		v = PMT_MAGIC_WAKEUP;
++	else
++		v = 0;
++	v |= PMT_IRQ_STATUS_CLR;	/* write 1 to clear, vendor pm.c */
++	writel(v, priv->port_base + PMT_CTRL);
++
++	priv->wol_enabled = !!(wol->wolopts & WAKE_MAGIC);
++	return 0;
++}
++
+ static const struct ethtool_ops hisi_femac_ethtools_ops = {
+ 	.get_link		= ethtool_op_get_link,
++	.get_wol		= femac_get_wol,
++	.set_wol		= femac_set_wol,
+ 	.get_link_ksettings	= phy_ethtool_get_link_ksettings,
+ 	.set_link_ksettings	= phy_ethtool_set_link_ksettings,
+ };
+@@ -962,12 +1009,28 @@ static void hisi_femac_drv_remove(struct
+ }
+ 
+ #ifdef CONFIG_PM
+-static int hisi_femac_drv_suspend(struct platform_device *pdev,
+-				  pm_message_t state)
++/* [BOARD-TEST] WoL suspend keeps the port fully alive: the PMT wake-event
++ * path never fires on this silicon (status bits do not latch for the
++ * filter framework, the magic detector, or the magic detector inside
++ * power-down -- probed live 2026-11-18), so the wake is the plain RX IRQ
++ * of ordinary traffic, unselective by construction.  Closing the port or
++ * entering power down kills the only working wake path; every clock stays
++ * on (the "phy" clock is the PHY's reference).
++ */
++static int femac_suspend(struct device *dev)
+ {
+-	struct net_device *ndev = platform_get_drvdata(pdev);
++	struct net_device *ndev = dev_get_drvdata(dev);
+ 	struct hisi_femac_priv *priv = netdev_priv(ndev);
+ 
++	if (priv->wol_enabled) {
++		u32 v = readl(priv->port_base + PMT_CTRL);
++
++		v |= PMT_MAGIC_WAKEUP | PMT_IRQ_STATUS_CLR;
++		writel(v, priv->port_base + PMT_CTRL);
++		enable_irq_wake(ndev->irq);
++		return 0;
++	}
++
+ 	disable_irq(ndev->irq);
+ 	if (netif_running(ndev)) {
+ 		hisi_femac_net_close(ndev);
+@@ -979,15 +1042,20 @@ static int hisi_femac_drv_suspend(struct
+ 	return 0;
+ }
+ 
+-static int hisi_femac_drv_resume(struct platform_device *pdev)
++static int femac_resume(struct device *dev)
+ {
+-	struct net_device *ndev = platform_get_drvdata(pdev);
++	struct net_device *ndev = dev_get_drvdata(dev);
+ 	struct hisi_femac_priv *priv = netdev_priv(ndev);
+ 	int ret;
+ 
++	if (priv->wol_enabled) {
++		disable_irq_wake(ndev->irq);
++		return 0;
++	}
++
+ 	ret = clk_bulk_prepare_enable(priv->num_clks, priv->clks);
+ 	if (ret) {
+-		dev_err(&pdev->dev, "failed to enable clk bulk: %d\n", ret);
++		dev_err(dev, "failed to enable clk bulk: %d\n", ret);
+ 		return ret;
+ 	}
+ 
+@@ -1003,6 +1071,8 @@ static int hisi_femac_drv_resume(struct
+ 
+ 	return 0;
+ }
++
++static DEFINE_SIMPLE_DEV_PM_OPS(femac_pm_ops, femac_suspend, femac_resume);
+ #endif
+ 
+ static const struct of_device_id hisi_femac_match[] = {
+@@ -1019,13 +1089,10 @@ static struct platform_driver hisi_femac
+ 	.driver = {
+ 		.name = "hisi-femac",
+ 		.of_match_table = hisi_femac_match,
++		.pm = pm_sleep_ptr(&femac_pm_ops),
+ 	},
+ 	.probe = hisi_femac_drv_probe,
+ 	.remove = hisi_femac_drv_remove,
+-#ifdef CONFIG_PM
+-	.suspend = hisi_femac_drv_suspend,
+-	.resume = hisi_femac_drv_resume,
+-#endif
+ };
+ 
+ module_platform_driver(hisi_femac_driver);

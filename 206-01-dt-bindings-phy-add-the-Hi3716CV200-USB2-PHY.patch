@@ -1,0 +1,139 @@
+From 8b7c8c2912575cd2d7ff37f349c3caae5707ed90 Mon Sep 17 00:00:00 2001
+From: David Yang <mmyangfl@gmail.com>
+Date: Sun, 22 Nov 2026 05:30:00 +0800
+Subject: [PATCH 1/2] dt-bindings: phy: add the Hi3716CV200 USB2 PHY
+
+The Hi3716CV200 drives its three USB2 ports from three PHYs whose
+power-down bits, and the UTMI or ULPI interface word those ports share,
+sit in the PERI block; nothing in the tree described them, so the host
+drivers had no PHY to bring up and a port whose PHY was left powered
+down never reported a connection.
+
+Document the window, one child node per port, and the two reset request
+cells each PHY has in the USB2 PHY CRG word.
+
+make dt_binding_check on this file is clean, and the example builds.
+
+Signed-off-by: David Yang <mmyangfl@gmail.com>
+---
+ .../phy/hisilicon,hi3716cv200-usb2-phy.yaml   | 114 ++++++++++++++++++
+ 1 file changed, 114 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/phy/hisilicon,hi3716cv200-usb2-phy.yaml
+
+--- /dev/null
++++ b/Documentation/devicetree/bindings/phy/hisilicon,hi3716cv200-usb2-phy.yaml
+@@ -0,0 +1,114 @@
++# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
++%YAML 1.2
++---
++$id: http://devicetree.org/schemas/phy/hisilicon,hi3716cv200-usb2-phy.yaml#
++$schema: http://devicetree.org/meta-schemas/core.yaml#
++
++title: HiSilicon Hi3716CV200 USB2 PHY
++
++maintainers:
++  - David Yang <mmyangfl@gmail.com>
++
++description: |
++  The Hi3716CV200 has three USB2 ports with one PHY each. The PERI block
++  holds a control word per PHY, which carries its power-down bit and its
++  analogue tuning bits, and a word for the port group, which selects the
++  UTMI or ULPI interface every port is driven with. The word between the
++  second and the third PHY is the PHYs' shared test port; the bring-up of
++  this part never uses it, so no property describes it.
++
++  Each port is a child node. The reference clock of a PHY is gated by a
++  CRG bit group that the clock provider raises for the whole block, so it
++  is not named here; the two reset request bits of every PHY are, and they
++  live in the USB2 PHY CRG word in port order, one pair per port.
++
++properties:
++  compatible:
++    const: hisilicon,hi3716cv200-usb2-phy
++
++  reg:
++    maxItems: 1
++    description:
++      The window holding the port group's interface word, the three PHY
++      control words and the shared test-port word.
++
++  resets:
++    minItems: 6
++    maxItems: 6
++    description: |
++      Two cells per port, in port order: the PHY's power-on reset request
++      bit, then its test reset request bit.
++
++  '#address-cells':
++    const: 1
++
++  '#size-cells':
++    const: 0
++
++patternProperties:
++  "^phy@[0-2]$":
++    type: object
++    description: PHY port subnode
++    additionalProperties: false
++
++    properties:
++      reg:
++        description:
++          Port index, which selects the PHY control word of the window.
++
++      '#phy-cells':
++        const: 0
++
++    required:
++      - reg
++      - '#phy-cells'
++
++additionalProperties: false
++
++required:
++  - compatible
++  - reg
++  - resets
++  - '#address-cells'
++  - '#size-cells'
++
++examples:
++  - |
++    soc {
++        #address-cells = <1>;
++        #size-cells = <1>;
++        ranges;
++
++        crg: clock-reset-controller@f8a22000 {
++            compatible = "hisilicon,hi3716cv200-crg", "syscon",
++                         "simple-mfd";
++            reg = <0xf8a22000 0x400>;
++            #clock-cells = <1>;
++            #reset-cells = <2>;
++        };
++
++        usb2_phy: usb2-phy@f8a20120 {
++            compatible = "hisilicon,hi3716cv200-usb2-phy";
++            reg = <0xf8a20120 0x14>;
++            resets = <&crg 0xbc 8>, <&crg 0xbc 9>,
++                     <&crg 0xbc 10>, <&crg 0xbc 11>,
++                     <&crg 0xbc 12>, <&crg 0xbc 13>;
++            #address-cells = <1>;
++            #size-cells = <0>;
++
++            usb2_phy_port0: phy@0 {
++                reg = <0>;
++                #phy-cells = <0>;
++            };
++
++            usb2_phy_port1: phy@1 {
++                reg = <1>;
++                #phy-cells = <0>;
++            };
++
++            usb2_phy_port2: phy@2 {
++                reg = <2>;
++                #phy-cells = <0>;
++            };
++        };
++    };

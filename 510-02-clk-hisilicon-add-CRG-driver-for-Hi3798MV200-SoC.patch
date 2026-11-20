@@ -37,12 +37,12 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  drivers/clk/hisilicon/Kconfig           |   10 +
  drivers/clk/hisilicon/Makefile          |    1 +
  drivers/clk/hisilicon/crg-hi3798mv200.c | 1276 +++++++++++++++++++++++
- 3 files changed, 1287 insertions(+)
+ 3 files changed, 1292 insertions(+)
  create mode 100644 drivers/clk/hisilicon/crg-hi3798mv200.c
 
 --- /dev/null
 +++ b/drivers/clk/hisilicon/crg-hi3798mv200.c
-@@ -0,0 +1,1276 @@
+@@ -0,0 +1,1281 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * Hi3798MV200 Clock and Reset Generator Driver
@@ -382,9 +382,14 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +		CLK_SET_RATE_PARENT, 0xb0, 1, 0 },
 +	{ HI3798MV200_USB3_UTMI_CLK, "clk_u3_utmi", "60m",
 +		CLK_SET_RATE_PARENT, 0xb0, 4, 0 },
-+	/* Watchdog */
++	/*
++	 * The watchdog gate is critical: the counter behind it is the
++	 * board's last reset path, and on this part a clock-gated block
++	 * drops writes and never answers reads -- a gate someone else can
++	 * close is not a safety net.
++	 */
 +	{ HI3798MV200_WDG0_CLK, "clk_wdg0", "clk_osc",
-+		CLK_SET_RATE_PARENT, 0x178, 0, 0 },
++		CLK_IS_CRITICAL, 0x178, 0, 0 },
 +	/*
 +	 * GPU.  The block enable is CRG53 bit 0, and the two pixel processors
 +	 * have their own gates in CRG53 bits 9:8; the vendor's enable sets all

@@ -36,7 +36,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 
 --- a/drivers/phy/hisilicon/Kconfig
 +++ b/drivers/phy/hisilicon/Kconfig
-@@ -69,3 +69,14 @@ config PHY_HIX5HD2_SATA
+@@ -79,3 +79,14 @@ config PHY_HIX5HD2_SATA
  	select MFD_SYSCON
  	help
  	  Support for SATA PHY on Hisilicon hix5hd2 Soc.
@@ -53,9 +53,9 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +	  seen an edge.
 --- a/drivers/phy/hisilicon/Makefile
 +++ b/drivers/phy/hisilicon/Makefile
-@@ -6,3 +6,4 @@ obj-$(CONFIG_PHY_HI3670_PCIE)		+= phy-hi
- obj-$(CONFIG_PHY_HISTB_COMBPHY)		+= phy-histb-combphy.o
+@@ -7,3 +7,4 @@ obj-$(CONFIG_PHY_HISTB_COMBPHY)		+= phy-
  obj-$(CONFIG_PHY_HISI_INNO_USB2)	+= phy-hisi-inno-usb2.o
+ obj-$(CONFIG_PHY_HI3716CV200_USB2)	+= phy-hi3716cv200-usb2.o
  obj-$(CONFIG_PHY_HIX5HD2_SATA)		+= phy-hix5hd2-sata.o
 +obj-$(CONFIG_PHY_HI3716CV200_SATA)	+= phy-hi3716cv200-sata.o
 --- /dev/null

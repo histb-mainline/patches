@@ -1,7 +1,7 @@
 From 77fd8f38ba8d007e4047152299653e3a88c49f30 Mon Sep 17 00:00:00 2001
 From: David Yang <mmyangfl@gmail.com>
 Date: Mon, 26 Oct 2026 13:36:23 +0800
-Subject: [PATCH 3/4] dt-bindings: phy: include the clock header the example
+Subject: [PATCH 3/3] dt-bindings: phy: include the clock header the example
  uses
 
 The clock id split left histb-clock.h as a forwarding shim with a

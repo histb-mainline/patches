@@ -1,0 +1,34 @@
+From 3ee0d3d4b24f733cb0ae558e0a54f62387781765 Mon Sep 17 00:00:00 2001
+From: David Yang <mmyangfl@gmail.com>
+Date: Mon, 23 Nov 2026 07:05:00 +0800
+Subject: [PATCH 5/6] dt-bindings: pwm: add hi3716cv200 pwm
+
+The Hi3716CV200 carries the same PMOC block: three outputs at the same
+offsets, feeding its CPU, core and GPU rails in that order. Give it its
+own compatible value, as the output count is what each part brings to
+the block.
+
+Signed-off-by: David Yang <mmyangfl@gmail.com>
+---
+ .../devicetree/bindings/pwm/hisilicon,hi3798cv200-pwm.yaml     | 3 +++
+ 1 file changed, 3 insertions(+)
+
+--- a/Documentation/devicetree/bindings/pwm/hisilicon,hi3798cv200-pwm.yaml
++++ b/Documentation/devicetree/bindings/pwm/hisilicon,hi3798cv200-pwm.yaml
+@@ -16,6 +16,8 @@ description:
+   of outputs differs between the SoCs carrying this block, so each SoC has
+   its own compatible value. The Hi3798MV100 carries the same block, whose
+   three outputs sit at the same offsets and feed its core, CPU and GPU rails.
++  The Hi3716CV200 carries the same block, whose three outputs feed its CPU,
++  core and GPU rails.
+ 
+ allOf:
+   - $ref: pwm.yaml#
+@@ -25,6 +27,7 @@ properties:
+     enum:
+       - hisilicon,hi3798cv200-pwm
+       - hisilicon,hi3798mv100-pwm
++      - hisilicon,hi3716cv200-pwm
+ 
+   reg:
+     description:

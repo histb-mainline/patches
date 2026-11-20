@@ -1,0 +1,37 @@
+From e85a8e53c3ec862cc860000883c330a1a76d0716 Mon Sep 17 00:00:00 2001
+From: David Yang <mmyangfl@gmail.com>
+Date: Sat, 21 Nov 2026 07:13:54 +0800
+Subject: [PATCH 3/6] dt-bindings: pwm: add hi3798mv100 pwm
+
+The Hi3798MV100 carries the PMOC block too: its three outputs sit at the
+same offsets and feed the core, CPU and GPU rails of that SoC. The
+output count is what each SoC contributes to the block, so give the
+MV100 its own compatible value.
+
+Signed-off-by: David Yang <mmyangfl@gmail.com>
+---
+ .../devicetree/bindings/pwm/hisilicon,hi3798cv200-pwm.yaml | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+--- a/Documentation/devicetree/bindings/pwm/hisilicon,hi3798cv200-pwm.yaml
++++ b/Documentation/devicetree/bindings/pwm/hisilicon,hi3798cv200-pwm.yaml
+@@ -14,14 +14,17 @@ description:
+   SoC provides three PWM outputs, which on the reference designs drive the
+   feedback node of an external converter such as a pwm-regulator. The number
+   of outputs differs between the SoCs carrying this block, so each SoC has
+-  its own compatible value.
++  its own compatible value. The Hi3798MV100 carries the same block, whose
++  three outputs sit at the same offsets and feed its core, CPU and GPU rails.
+ 
+ allOf:
+   - $ref: pwm.yaml#
+ 
+ properties:
+   compatible:
+-    const: hisilicon,hi3798cv200-pwm
++    enum:
++      - hisilicon,hi3798cv200-pwm
++      - hisilicon,hi3798mv100-pwm
+ 
+   reg:
+     description:

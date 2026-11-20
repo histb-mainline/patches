@@ -27,7 +27,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 
 --- /dev/null
 +++ b/arch/arm64/boot/dts/hisilicon/hi3798mv200.dtsi
-@@ -0,0 +1,997 @@
+@@ -0,0 +1,994 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * DTS File for HiSilicon Hi3798mv200 SoC.
@@ -400,14 +400,11 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +		};
 +
 +		wdg0: watchdog@8a2c000 {
-+			compatible = "arm,sp805", "arm,primecell";
-+			/* arm primecell periphid registers are not implemented for this SoC */
-+			arm,primecell-periphid = <0x00141805>;
++			compatible = "hisilicon,hi3798mv200-wdt", "hisilicon,histb-wdt";
 +			reg = <0x8a2c000 0x1000>;
 +			interrupts = <GIC_SPI 29 IRQ_TYPE_LEVEL_HIGH>;
-+			clocks = <&crg HI3798MV200_WDG0_CLK>, <&crg HI3798MV200_APB_CLK>;
-+			clock-names = "wdog_clk", "apb_pclk";
-+			resets = <&crg 0x178 4>;
++			clocks = <&crg HI3798MV200_WDG0_CLK>;
++			clock-names = "wdgclk";
 +			status = "disabled";
 +		};
 +

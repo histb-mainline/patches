@@ -136,7 +136,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  		goto out_free_netdev;
  	}
  
-@@ -829,6 +864,23 @@ static int hisi_femac_drv_probe(struct p
+@@ -829,13 +864,30 @@ static int hisi_femac_drv_probe(struct p
  		hisi_femac_phy_reset(priv);
  	}
  
@@ -157,10 +157,9 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +		break;
 +	}
 +
- 	/* attach asks the core whether this netdev serialises its ops, and that
- 	 * check reads ->netdev_ops, so the tables go in first
- 	 */
-@@ -841,7 +893,7 @@ static int hisi_femac_drv_probe(struct p
+ 	ndev->netdev_ops = &hisi_femac_netdev_ops;
+ 
+ 	phy = of_phy_get_and_connect(ndev, node, hisi_femac_adjust_link);
  	if (!phy) {
  		dev_err(dev, "connect to PHY failed!\n");
  		ret = -ENODEV;
@@ -169,7 +168,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  	}
  
  	phy_attached_print(phy, "phy_id=0x%.8lx, phy_mode=%s\n",
-@@ -888,8 +940,10 @@ static int hisi_femac_drv_probe(struct p
+@@ -885,8 +937,10 @@ static int hisi_femac_drv_probe(struct p
  out_disconnect_phy:
  	netif_napi_del(&priv->napi);
  	phy_disconnect(phy);
@@ -181,7 +180,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  out_free_netdev:
  	free_netdev(ndev);
  
-@@ -905,7 +959,8 @@ static void hisi_femac_drv_remove(struct
+@@ -902,7 +956,8 @@ static void hisi_femac_drv_remove(struct
  	unregister_netdev(ndev);
  
  	phy_disconnect(ndev->phydev);
@@ -191,7 +190,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  	free_netdev(ndev);
  }
  
-@@ -922,7 +977,7 @@ static int hisi_femac_drv_suspend(struct
+@@ -919,7 +974,7 @@ static int hisi_femac_drv_suspend(struct
  		netif_device_detach(ndev);
  	}
  
@@ -200,7 +199,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  
  	return 0;
  }
-@@ -931,8 +986,14 @@ static int hisi_femac_drv_resume(struct
+@@ -928,8 +983,14 @@ static int hisi_femac_drv_resume(struct
  {
  	struct net_device *ndev = platform_get_drvdata(pdev);
  	struct hisi_femac_priv *priv = netdev_priv(ndev);
@@ -216,7 +215,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  	if (priv->phy_rst)
  		hisi_femac_phy_reset(priv);
  
-@@ -951,6 +1012,7 @@ static const struct of_device_id hisi_fe
+@@ -948,6 +1009,7 @@ static const struct of_device_id hisi_fe
  	{.compatible = "hisilicon,hisi-femac-v1",},
  	{.compatible = "hisilicon,hisi-femac-v2",},
  	{.compatible = "hisilicon,hi3516cv300-femac",},

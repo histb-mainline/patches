@@ -1,0 +1,35 @@
+From 0efd6eeffd016c888aac7cea2debfd598b556e93 Mon Sep 17 00:00:00 2001
+From: David Yang <mmyangfl@gmail.com>
+Date: Mon, 23 Nov 2026 07:05:30 +0800
+Subject: [PATCH 6/6] pwm: histb: add Hi3716CV200 support
+
+Match the Hi3716CV200 compatible value added by the previous change. The
+cells have the same layout as the reference design's and the same count,
+which the match data carries per SoC.
+
+Signed-off-by: David Yang <mmyangfl@gmail.com>
+---
+ drivers/pwm/pwm-histb.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+--- a/drivers/pwm/pwm-histb.c
++++ b/drivers/pwm/pwm-histb.c
+@@ -38,6 +38,9 @@
+ /* MV100: PWM0 is core (PMC6), PWM1 is CPU (PMC7), PWM2 is GPU (PMC8). */
+ #define HI3798MV100_NUM_PWMS		3
+ 
++/* Hi3716CV200: PWM0 is CPU (PMC6), PWM1 is core (PMC7), PWM2 is GPU (PMC8). */
++#define HI3716CV200_NUM_PWMS		3
++
+ struct histb_pwm {
+ 	void __iomem *base;
+ 	unsigned long rate;
+@@ -148,6 +151,8 @@ static const struct of_device_id histb_p
+ 	  .data = (void *) HI3798CV200_NUM_PWMS },
+ 	{ .compatible = "hisilicon,hi3798mv100-pwm",
+ 	  .data = (void *) HI3798MV100_NUM_PWMS },
++	{ .compatible = "hisilicon,hi3716cv200-pwm",
++	  .data = (void *) HI3716CV200_NUM_PWMS },
+ 	{ /* sentinel */ }
+ };
+ MODULE_DEVICE_TABLE(of, histb_pwm_of_match);

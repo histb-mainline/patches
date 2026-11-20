@@ -7,12 +7,12 @@ The Hi3798MV100 is the Cortex-A7 STB variant of the Hi3798 family and
 has no mainline description.
 
 Four A7 cores with a GIC-400, the core CRG and system controller, the
-PMOC regulators, the Fast Ethernet MAC with its mdio and Festa PHY, the
-USB2 hosts, the MMC hosts, the IR receiver, the GPIO controllers, the
-DMA engine and the display, audio and codec blocks are all the hardware
-the drivers ahead of this change bind to, trimmed to what this part
-actually has, with the VPSS behind its CRG60 gate and the on-die tsensor
-beside them.
+PMOC PWM and its converter rails, the Fast Ethernet MAC with its mdio
+and Festa PHY, the USB2 hosts, the MMC hosts, the IR receiver, the GPIO
+controllers, the DMA engine and the display, audio and codec blocks are
+all the hardware the drivers ahead of this change bind to, trimmed to
+what this part actually has, with the VPSS behind its CRG60 gate and
+the on-die tsensor beside them.
 
 Describe the SoC, leaving everything display, audio and graphics related
 disabled for the board to switch on.
@@ -20,13 +20,13 @@ disabled for the board to switch on.
 Signed-off-by: Hongfu Yang <yanghf_0@126.com>
 Signed-off-by: David Yang <mmyangfl@gmail.com>
 ---
- arch/arm/boot/dts/hisilicon/hi3798mv100.dtsi | 833 +++++++++++++++++++
- 1 file changed, 833 insertions(+)
+ arch/arm/boot/dts/hisilicon/hi3798mv100.dtsi | 846 ++++++++++++++++++
+ 1 file changed, 846 insertions(+)
  create mode 100644 arch/arm/boot/dts/hisilicon/hi3798mv100.dtsi
 
 --- /dev/null
 +++ b/arch/arm/boot/dts/hisilicon/hi3798mv100.dtsi
-@@ -0,0 +1,833 @@
+@@ -0,0 +1,853 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
 +/*
 + * Copyright (c) 2023 David Yang
@@ -63,6 +63,41 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +
 +/ {
 +	compatible = "hisilicon,hi3798mv100";
++
++	/*
++	 * The converters rise as the duty cycle falls, hence the inverted
++	 * pwm-dutycycle-range. The signals they take are &pmoc's PWM0 to
++	 * PWM2: core (PMC6), CPU (PMC7), GPU (PMC8).
++	 */
++	vddcore: regulator-core {
++		compatible = "pwm-regulator";
++		pwms = <&pmoc 0 10000>;
++		pwm-dutycycle-range = <100 0>;
++		regulator-name = "vdd-core";
++		regulator-min-microvolt = <900000>;
++		regulator-max-microvolt = <1315000>;
++		regulator-always-on;
++	};
++
++	vddcpu: regulator-cpu {
++		compatible = "pwm-regulator";
++		pwms = <&pmoc 1 10000>;
++		pwm-dutycycle-range = <100 0>;
++		regulator-name = "vdd-cpu";
++		regulator-min-microvolt = <920000>;
++		regulator-max-microvolt = <1495000>;
++		regulator-always-on;
++	};
++
++	vddgpu: regulator-gpu {
++		compatible = "pwm-regulator";
++		pwms = <&pmoc 2 10000>;
++		pwm-dutycycle-range = <100 0>;
++		regulator-name = "vdd-gpu";
++		regulator-min-microvolt = <900000>;
++		regulator-max-microvolt = <1320000>;
++		regulator-always-on;
++	};
 +};
 +
 +&soc {
@@ -475,6 +510,11 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +		status = "disabled";
 +	};
 +
++	/*
++	 * SP805-mapped block: semantics match the PrimeCell IP (LOAD write
++	 * reloads, LOCK does not freeze, WDTLOAD=0 loads 0) but the PrimeCell
++	 * ID page at 0xfe0..0xffc is unimplemented, hence the periphid override.
++	 */
 +	wdt0: watchdog@8a2c000 {
 +		compatible = "arm,sp805", "arm,primecell";
 +		arm,primecell-periphid = <0x00141805>;
@@ -560,31 +600,11 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +	 * MV100 maps the core rail to PMC6 and the CPU rail to PMC7; on
 +	 * CV200/MV200/MV300 the CPU rail is PMC6.
 +	 */
-+	vddcore: regulator@8a23018 {
-+		compatible = "hisilicon,hi3798cv200-regulator";
-+		reg = <0x8a23018 4>;
-+		regulator-name = "vdd-core";
-+		regulator-min-microvolt = <900000>;
-+		regulator-max-microvolt = <1315000>;
-+		regulator-always-on;
-+	};
-+
-+	vddcpu: regulator@8a2301c {
-+		compatible = "hisilicon,hi3798cv200-regulator";
-+		reg = <0x8a2301c 4>;
-+		regulator-name = "vdd-cpu";
-+		regulator-min-microvolt = <920000>;
-+		regulator-max-microvolt = <1495000>;
-+		regulator-always-on;
-+	};
-+
-+	vddgpu: regulator@8a23020 {
-+		compatible = "hisilicon,hi3798cv200-regulator";
-+		reg = <0x8a23020 4>;
-+		regulator-name = "vdd-gpu";
-+		regulator-min-microvolt = <900000>;
-+		regulator-max-microvolt = <1320000>;
-+		regulator-always-on;
++	pmoc: pwm@8a23018 {
++		compatible = "hisilicon,hi3798mv100-pwm";
++		reg = <0x8a23018 0xc>;
++		clocks = <&crg HI3798MV100_OSC_CLK>;
++		#pwm-cells = <2>;
 +	};
 +};
 +

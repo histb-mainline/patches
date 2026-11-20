@@ -14,8 +14,8 @@ the board and gate its DTB on ARCH_HI3716CV200.
 Signed-off-by: David Yang <mmyangfl@gmail.com>
 ---
  arch/arm/boot/dts/hisilicon/Makefile          |  2 +
- .../boot/dts/hisilicon/hi3716cv200-ar513w.dts | 47 +++++++++++++++++++
- 2 files changed, 49 insertions(+)
+ .../boot/dts/hisilicon/hi3716cv200-ar513w.dts | 78 ++++++++++++++++++++++++++
+ 2 files changed, 80 insertions(+)
  create mode 100644 arch/arm/boot/dts/hisilicon/hi3716cv200-ar513w.dts
 
 --- a/arch/arm/boot/dts/hisilicon/Makefile
@@ -28,7 +28,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +	hi3716cv200-ar513w.dtb
 --- /dev/null
 +++ b/arch/arm/boot/dts/hisilicon/hi3716cv200-ar513w.dts
-@@ -0,0 +1,47 @@
+@@ -0,0 +1,78 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
 +/*
 + * Huawei AR513W-V3M8: Hi3716CV200 (bigfish) with 1 GiB NAND,
@@ -39,6 +39,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +/dts-v1/;
 +
 +#include "hi3716cv200.dtsi"
++#include <dt-bindings/gpio/gpio.h>
 +
 +/ {
 +	model = "Huawei AR513W-V3M8 (Hi3716CV200)";
@@ -74,5 +75,35 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +		speed = <1000>;
 +		full-duplex;
 +		pause;
++	};
++};
++
++/*
++ * The USB port power enables. Every boot starts with the vendor
++ * bootloader driving these low ("pull down the usb en"); its
++ * flash-boot path raises them again before jumping into the vendor
++ * kernel ("pull up the usb en pins again"), so a kernel booted
++ * through tftp/bootm never sees them high. Declare the vendor
++ * runtime shape here: gpio4 line 7 gates the path the disk
++ * enumerates on (with it low the roothubs see nothing; raising it
++ * alone brings the disk back at high speed), gpio17 line 4 gates
++ * the third port path (a full-speed device on ohci port 3).
++ * Measured on this board 2026-11-22.
++ */
++&gpio4 {
++	usb-en {
++		gpio-hog;
++		gpios = <7 GPIO_ACTIVE_HIGH>;
++		output-high;
++		line-name = "usb-en";
++	};
++};
++
++&gpio17 {
++	usb-en-3 {
++		gpio-hog;
++		gpios = <4 GPIO_ACTIVE_HIGH>;
++		output-high;
++		line-name = "usb-en-port3";
 +	};
 +};

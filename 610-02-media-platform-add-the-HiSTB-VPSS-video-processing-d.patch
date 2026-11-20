@@ -18,11 +18,12 @@ refused with a warning instead of silently converting; the buffers a
 stopped queue still holds come back at stop_streaming.
 
 Beyond the flip-and-scale core the driver covers the 4:2:2 format family
-on both ports, the sharpening engine, a source-side crop, rotation
-through a two-image chain, packed 4:2:2 input and the block's
-motion-adaptive deinterlace mode; the vpss_v4_0 generation of
-hi3798mv200 runs its jobs through the chained-descriptor command path
-that generation uses.
+on both ports, a source-side crop, packed 4:2:2 input and the block's
+motion-adaptive deinterlace mode. The sharpening engine and the rotation
+chain stay the vpss_v3_0 generation's extras: the v4 command path carries
+no image of its own for either. The vpss_v4_0 generation of hi3798mv200
+runs its jobs through the chained-descriptor command path that generation
+uses, and scales through the same phase tables the older one loads.
 
 Signed-off-by: David Yang <mmyangfl@gmail.com>
 ---
@@ -1151,7 +1152,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +#endif
 --- /dev/null
 +++ b/drivers/media/platform/hisilicon/histb-vpss.c
-@@ -0,0 +1,2219 @@
+@@ -0,0 +1,2213 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
 +/*
 + * histb-vpss.c - HiSilicon HiSTB video processing subsystem, mem2mem form.
@@ -1260,7 +1261,12 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +			    const struct histb_vpss_pass *p);
 +	void	(*power_up)(struct histb_vpss *vpss);
 +	bool	deinterlacing;
-+	bool	scaling;
++	bool	sharpening;	/* the generation whose pass consumes the
++				 * sharpening engine
++				 */
++	bool	rotating;	/* the generation whose rotate chain this
++				 * driver can build
++				 */
 +	bool	packed;
 +};
 +
@@ -1559,18 +1565,6 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +
 +		if (!src || !dst || src->fmt422 != dst->fmt422)
 +			return -EINVAL;
-+		/*
-+		 * With no scaler the port can only repeat the window it is
-+		 * given. Refusing a size change here beats handing the client
-+		 * back the input size and letting it find out from the pixels.
-+		 */
-+		if (!ctx->vpss->var->scaling &&
-+		    (f->fmt.pix.width != ctx->src_fmt.width ||
-+		     f->fmt.pix.height != ctx->src_fmt.height)) {
-+			dev_warn_ratelimited(vpss_dev_of_ctx(ctx),
-+					     "this generation scales nothing\n");
-+			return -EINVAL;
-+		}
 +		ctx->dst_fmt = f->fmt.pix;
 +	}
 +	return 0;
@@ -2269,7 +2263,8 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +	.err_name = histb_vpss_v3_err_name,
 +	.pass_run = histb_vpss_v3_pass_run,
 +	.deinterlacing = true,
-+	.scaling = true,
++	.sharpening = true,
++	.rotating = true,
 +	.packed = true,
 +};
 +
@@ -2958,12 +2953,12 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +	v4l2_ctrl_handler_init(hdl, 5);
 +	ctx->hflip = v4l2_ctrl_new_std(hdl, NULL, V4L2_CID_HFLIP, 0, 1, 1, 0);
 +	ctx->vflip = v4l2_ctrl_new_std(hdl, NULL, V4L2_CID_VFLIP, 0, 1, 1, 0);
-+	if (ctx->vpss->var->scaling) {
++	if (ctx->vpss->var->sharpening)
 +		ctx->sharpness = v4l2_ctrl_new_std(hdl, NULL, V4L2_CID_SHARPNESS,
 +						   0, 255, 1, 0);
++	if (ctx->vpss->var->rotating)
 +		ctx->rotate = v4l2_ctrl_new_std(hdl, NULL, V4L2_CID_ROTATE, 0,
 +						270, 90, 0);
-+	}
 +	if (ctx->vpss->var->deinterlacing)
 +		ctx->dei_ctrl = v4l2_ctrl_new_std_menu_items(hdl, NULL,
 +							     V4L2_CID_DEINTERLACING_MODE,

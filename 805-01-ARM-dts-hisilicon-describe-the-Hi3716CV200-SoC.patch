@@ -23,13 +23,13 @@ on.
 
 Signed-off-by: David Yang <mmyangfl@gmail.com>
 ---
- arch/arm/boot/dts/hisilicon/hi3716cv200.dtsi | 1219 ++++++++++++++++++
- 1 file changed, 1219 insertions(+)
+ arch/arm/boot/dts/hisilicon/hi3716cv200.dtsi | 1329 ++++++++++++++++++
+ 1 file changed, 1329 insertions(+)
  create mode 100644 arch/arm/boot/dts/hisilicon/hi3716cv200.dtsi
 
 --- /dev/null
 +++ b/arch/arm/boot/dts/hisilicon/hi3716cv200.dtsi
-@@ -0,0 +1,1214 @@
+@@ -0,0 +1,1329 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
 +/*
 + * HiSilicon Hi3716CV200 (2x Cortex-A9, 32-bit).
@@ -88,6 +88,9 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +			device_type = "cpu";
 +			reg = <0>;
 +			enable-method = "hisilicon,hi3716cv200-smp";
++			clocks = <&crg HI3716CV200_CPU_FREQ_SEL_CFG_CRG>;
++			operating-points-v2 = <&cpu_opp_table>;
++			cpu-supply = <&vddcpu>;
 +		};
 +
 +		cpu1: cpu@1 {
@@ -95,7 +98,80 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +			device_type = "cpu";
 +			reg = <1>;
 +			enable-method = "hisilicon,hi3716cv200-smp";
++			operating-points-v2 = <&cpu_opp_table>;
 +		};
++	};
++
++	/*
++	 * The cluster shares one clock and one rail, so both CPUs take a single
++	 * shared table. The voltages are the vendor's per-OPP upper bounds --
++	 * the HI_VDD_MPU_OPP1_UV to OPP5_UV macros -- rather than the lower
++	 * words the board settles at once its HPM-driven AVS has had its say,
++	 * because neither HPM nor AVS is implemented here.
++	 */
++	cpu_opp_table: opp-table {
++		compatible = "operating-points-v2";
++		opp-shared;
++
++		opp-400000000 {
++			opp-hz = /bits/ 64 <400000000>;
++			opp-microvolt = <1000000>;
++		};
++
++		opp-600000000 {
++			opp-hz = /bits/ 64 <600000000>;
++			opp-microvolt = <1000000>;
++		};
++
++		opp-800000000 {
++			opp-hz = /bits/ 64 <800000000>;
++			opp-microvolt = <1060000>;
++		};
++
++		opp-1000000000 {
++			opp-hz = /bits/ 64 <1000000000>;
++			opp-microvolt = <1180000>;
++		};
++
++		opp-1200000000 {
++			opp-hz = /bits/ 64 <1200000000>;
++			opp-microvolt = <1300000>;
++		};
++	};
++
++	/*
++	 * The converters rise as the duty cycle falls, hence the inverted
++	 * pwm-dutycycle-range. The signals they take are &pmoc's PWM0 to PWM2:
++	 * CPU (PMC6), core (PMC7), GPU (PMC8).
++	 */
++	vddcpu: regulator-cpu {
++		compatible = "pwm-regulator";
++		pwms = <&pmoc 0 10000>;
++		pwm-dutycycle-range = <100 0>;
++		regulator-name = "vdd-cpu";
++		regulator-min-microvolt = <900000>;
++		regulator-max-microvolt = <1315000>;
++		regulator-always-on;
++	};
++
++	vddcore: regulator-core {
++		compatible = "pwm-regulator";
++		pwms = <&pmoc 1 10000>;
++		pwm-dutycycle-range = <100 0>;
++		regulator-name = "vdd-core";
++		regulator-min-microvolt = <900000>;
++		regulator-max-microvolt = <1205000>;
++		regulator-always-on;
++	};
++
++	vddgpu: regulator-gpu {
++		compatible = "pwm-regulator";
++		pwms = <&pmoc 2 10000>;
++		pwm-dutycycle-range = <100 0>;
++		regulator-name = "vdd-gpu";
++		regulator-min-microvolt = <900000>;
++		regulator-max-microvolt = <1320000>;
++		regulator-always-on;
 +	};
 +
 +	/*
@@ -207,6 +283,20 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +			reg = <0xf8a22000 0x400>;
 +			#clock-cells = <1>;
 +			#reset-cells = <2>;
++		};
++
++		/*
++		 * The PMOC block's three PWM cells: one 32-bit register per
++		 * cell, period in the low half and high-phase count in the
++		 * high half, for CPU, core and GPU in that order. CRG50's
++		 * pmc_cken gates the block and the board's boot chain keeps it
++		 * raised, so no consumer claims it here.
++		 */
++		pmoc: pwm@f8a23018 {
++			compatible = "hisilicon,hi3716cv200-pwm";
++			reg = <0xf8a23018 0xc>;
++			clocks = <&crg HI3716CV200_CLK_OSC24M>;
++			#pwm-cells = <2>;
 +		};
 +
 +		/*
@@ -558,33 +648,20 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +		};
 +
 +		/*
-+		 * WDG0 and WDG1 are SP805 blocks; the vendor s40_restart() uses
-+		 * WDG0 the same way. PERI_CRG94 (0x178) gates them: bits 0..3
-+		 * are wdg0..3_cken, bits 4..7 the matching srst_req. Both bits of the pair
-+		 * belong to &crg's clk_wdt0 row: this driver consumes no reset control, so a
-+		 * `resets` cell here would leave the dog held in reset with nobody to release
++		 * WDG0 and WDG1 are SP805-map blocks on the dedicated histb-wdt
++		 * binding; the vendor s40_restart() uses WDG0 the same way.
++		 * PERI_CRG94 (0x178) gates them: bits 0..3 are wdg0..3_cken, bits
++		 * 4..7 the matching srst_req. Both bits of the pair belong to &crg's
++		 * clk_wdt0 row: this driver consumes no reset control, so a `resets`
++		 * cell here would leave the dog held in reset with nobody to release
 +		 * it, and a dog in reset does not count (see crg-hi3716cv200.c).
 +		 */
 +		wdt0: watchdog@f8a2c000 {
-+			compatible = "arm,sp805", "arm,primecell";
-+			/*
-+			 * This instance has no PrimeCell ID header: with the block
-+			 * clocked and out of reset (CRG94 0x0000000F) it answers at
-+			 * offset 0x00 but 0xfe0..0xffc read eight zero words, while a
-+			 * PL061 bank read in the same batch answers 61 10 04 00 /
-+			 * 05 b1 -- so the zeros are the hardware, not the read method.
-+			 * Nothing here is a measured ID: the property below presets
-+			 * adev->periphid (of/platform.c) and amba_device_add() then
-+			 * skips amba_read_periphid() entirely, so /sys .../id just
-+			 * echoes this constant. The value is the driver's own table
-+			 * entry (sp805_wdt_ids, mask 0x00ffffff), so bits 23:0 are
-+			 * all that carries meaning here.
-+			 */
-+			arm,primecell-periphid = <0x00141805>;
++			compatible = "hisilicon,hi3716cv200-wdt", "hisilicon,histb-wdt";
 +			reg = <0xf8a2c000 0x1000>;
 +			interrupts = <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>;
-+			clocks = <&crg HI3716CV200_WDT0_CLK>, <&xtal24mhz>;
-+			clock-names = "wdog_clk", "apb_pclk";
++			clocks = <&crg HI3716CV200_WDT0_CLK>;
++			clock-names = "wdgclk";
 +			timeout-sec = <60>;
 +		};
 +
@@ -756,6 +833,38 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +		};
 +
 +		/*
++		 * The three USB2 PHYs, one control word each in PERI and two
++		 * reset request cells each in CRG47. Measured on this board:
++		 * a port whose PHY keeps its power-down bit set enumerates
++		 * nothing, and the EHCI takes a port only once that PHY is out
++		 * of its test reset.
++		 */
++		usb2_phy: usb2-phy@f8a20120 {
++			compatible = "hisilicon,hi3716cv200-usb2-phy";
++			reg = <0xf8a20120 0x14>;
++			resets = <&crg 0xbc 8>, <&crg 0xbc 9>,
++				 <&crg 0xbc 10>, <&crg 0xbc 11>,
++				 <&crg 0xbc 12>, <&crg 0xbc 13>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			usb2_phy_port0: phy@0 {
++				reg = <0>;
++				#phy-cells = <0>;
++			};
++
++			usb2_phy_port1: phy@1 {
++				reg = <1>;
++				#phy-cells = <0>;
++			};
++
++			usb2_phy_port2: phy@2 {
++				reg = <2>;
++				#phy-cells = <0>;
++			};
++		};
++
++		/*
 +		 * USB2 host: two windows for one physical port set, which is how the
 +		 * generic host drivers expect it -- EHCI takes high-speed, OHCI the
 +		 * full/low-speed side. Both addresses are the vendor system's own
@@ -768,7 +877,9 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +		 * The clock handles are what keep the probe honest rather than what
 +		 * turns the block on -- CRG46/CRG47 are raised by the clock provider
 +		 * itself -- but naming them means the host drivers cannot bind before
-+		 * the CRG has probed.
++		 * the CRG has probed. The phys are the port group's three PHYs, in
++		 * roothub port order; the USB core brings each one up before the
++		 * host that names it runs its ports.
 +		 */
 +		usb2: usb@f9890000 {
 +			compatible = "generic-ehci";
@@ -776,6 +887,8 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +			interrupts = <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>;
 +			clocks = <&crg HI3716CV200_USB_BUS_CLK>,
 +				 <&crg HI3716CV200_USB_PHY_CLK>;
++			phys = <&usb2_phy_port0>, <&usb2_phy_port1>,
++			       <&usb2_phy_port2>;
 +		};
 +
 +		usb3: usb@f9880000 {
@@ -784,6 +897,8 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +			interrupts = <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>;
 +			clocks = <&crg HI3716CV200_USB_BUS_CLK>,
 +				 <&crg HI3716CV200_USB_PHY_CLK>;
++			phys = <&usb2_phy_port0>, <&usb2_phy_port1>,
++			       <&usb2_phy_port2>;
 +		};
 +
 +		/*

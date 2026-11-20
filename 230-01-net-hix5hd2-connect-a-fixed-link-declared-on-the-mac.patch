@@ -13,10 +13,14 @@ as the phy device's of_node, which is what of_phy_connect() matches a
 fixed phy_device against. Ports with a PHY on the bus keep using
 phy-handle.
 
+Unregister the fixed phy_device again on the remove path and the probe
+error unwind so that repeated unbind/bind cycles cannot drain the eight
+slots of the shared fixed MDIO bus.
+
 Signed-off-by: David Yang <mmyangfl@gmail.com>
 ---
- drivers/net/ethernet/hisilicon/hix5hd2_gmac.c | 23 +++++++++++++++----
- 1 file changed, 18 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/hisilicon/hix5hd2_gmac.c | 27 ++++++++++++++++++++++-----
+ 1 file changed, 22 insertions(+), 5 deletions(-)
 
 --- a/drivers/net/ethernet/hisilicon/hix5hd2_gmac.c
 +++ b/drivers/net/ethernet/hisilicon/hix5hd2_gmac.c
@@ -50,3 +54,21 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  	}
  
  	ndev->irq = platform_get_irq(pdev, 0);
+@@ -1268,6 +1281,8 @@ out_destroy_queue:
+ 	netif_napi_del(&priv->napi);
+ 	hix5hd2_destroy_hw_desc_queue(priv);
+ out_phy_node:
++	if (of_phy_is_fixed_link(node))
++		of_phy_deregister_fixed_link(node);
+ 	of_node_put(priv->phy_node);
+ err_mdiobus:
+ 	mdiobus_unregister(bus);
+@@ -1296,6 +1311,8 @@ static void hix5hd2_dev_remove(struct pl
+ 	if (HAS_CAP_TSO(priv->hw_cap))
+ 		hix5hd2_destroy_sg_desc_queue(priv);
+ 	hix5hd2_destroy_hw_desc_queue(priv);
++	if (of_phy_is_fixed_link(pdev->dev.of_node))
++		of_phy_deregister_fixed_link(pdev->dev.of_node);
+ 	of_node_put(priv->phy_node);
+ 	free_netdev(ndev);
+ }

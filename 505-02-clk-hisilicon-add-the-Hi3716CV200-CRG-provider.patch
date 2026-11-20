@@ -1,7 +1,7 @@
 From 893dd0f186a8af75257707c8616fedb27c52207f Mon Sep 17 00:00:00 2001
 From: David Yang <mmyangfl@gmail.com>
 Date: Wed, 21 Oct 2026 15:55:16 +0800
-Subject: [PATCH 2/2] clk: hisilicon: add the Hi3716CV200 CRG provider
+Subject: [PATCH 2/3] clk: hisilicon: add the Hi3716CV200 CRG provider
 
 The ported peripheral drivers bind to the core CRG's clock gates and to
 every CRG register as a reset cell.
@@ -40,7 +40,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 
 --- /dev/null
 +++ b/drivers/clk/hisilicon/crg-hi3716cv200.c
-@@ -0,0 +1,852 @@
+@@ -0,0 +1,856 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * HiSilicon Hi3716CV200 Clock and Reset Generator driver
@@ -367,17 +367,21 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 +	/*
 +	 * CRG46/CRG47: the USB2 host. The vendor brings the block up as two words --
 +	 * measured on this board's own vendor system, CRG46 = 0x1FF (bus, the two OHCI
-+	 * reference rates, otg_utmi, hst_phy and utmi0..2 clocked, srst_req 12..17 all
-+	 * clear) and CRG47 = 0x7 (the three PHY reference clocks on, their resets
-+	 * clear) -- so both groups are registered. CRG47's refclk_sel bits 16..18 are
-+	 * deliberately outside the mask: the vendor leaves them 0 and nothing here
-+	 * needs to move them.
++	 * reference rates, otg_utmi, hst_phy, utmi0..2 and adp clocked, srst_req
++	 * 12..17 all clear) and CRG47 = 0x7 (the three PHY reference clocks on, their
++	 * resets clear) -- so both groups are registered. CRG46's adp_cken (bit 8) and
++	 * CRG47's srst_treq bits (9/11/13) complete the masks: a mainline boot that
++	 * left them out measured CRG46 = 0xff and CRG47 = 0x2a07 -- the three PHYs
++	 * held in their test reset -- with the EHCI side unable to take a port at all
++	 * (2026-11-21; the vendor glue releases the treq bits as its final step).
++	 * CRG47's refclk_sel bits 16..18 are deliberately outside the mask: the
++	 * vendor leaves them 0 and nothing here needs to move them.
 +	 */
 +	{ HI3716CV200_USB_BUS_CLK, "clk_usb_bus", 0xb8,
-+	  GENMASK(7, 0) | GENMASK(17, 12), GENMASK(7, 0),
++	  GENMASK(8, 0) | GENMASK(17, 12), GENMASK(8, 0),
 +	  CLK_IS_CRITICAL, -1, },
 +	{ HI3716CV200_USB_PHY_CLK, "clk_usb_phy", 0xbc,
-+	  GENMASK(2, 0) | BIT(8) | BIT(10) | BIT(12), GENMASK(2, 0),
++	  GENMASK(13, 8) | GENMASK(2, 0), GENMASK(2, 0),
 +	  CLK_IS_CRITICAL, -1, },
 +	/*
 +	 * CRG42/CRG43: the SATA host, again two words. CRG42's reset bits are

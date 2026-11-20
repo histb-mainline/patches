@@ -1,8 +1,7 @@
-6c559a0f4105fe7bc48731b649c04c4fce9776af Mon Sep 17 00:00:00 2001
+From 6c559a0f4105fe7bc48731b649c04c4fce9776af Mon Sep 17 00:00:00 2001
 From: yangfl <yangfl@users.noreply.github.com>
-Date: Wed, 18 Nov 2026 02:17:16 +0800
-Subject: [PATCH 2/2] usb: host: keep the Hi3798M USB2 host pair running across
- system suspend
+Date: Sat, 21 Nov 2026 07:15:33 +0800
+Subject: [PATCH 2/2] usb: host: keep the Hi3798M USB2 hosts and root hubs running
 
 The Hi3798MV100 and Hi3798MV200 wire the EHCI and OHCI hosts of a USB2
 port group to one bus clock and one bus reset line, and every suspend
@@ -21,15 +20,28 @@ no-ops, so that nothing stops the group's clocks until the system itself
 goes down.  The dpm walk then gets past the USB2 hosts; on the
 EC6108V9C (Hi3798MV100) board the device suspend walk completes, where
 without this it hung at the first OHCI platform suspend.
+
+The quirk leaves the hardware running while the USB core still
+runtime-suspends the root hub device, though: the status URB is parked
+and the core considers the hub suspended, while the ports keep running
+underneath.  On the Hi3798MV100's second host pair that half state stops
+port change reporting: the first hotplug after the hub parked latches
+PORT_CSC in PORTSC but the port change summary interrupt never fires
+again, so further connects are never enumerated until the driver is
+rebound.  Keep the flagged root hubs at full power for the life of their
+controllers with pm_runtime_forbid(), so the core's view of the pair
+matches what the hardware is actually doing; system suspend is
+unaffected, the root hub device still goes through the normal system
+suspend path.
 ---
  drivers/usb/host/ehci-hcd.c      |  3 ++-
  drivers/usb/host/ehci-hub.c      | 10 ++++++++++
- drivers/usb/host/ehci-platform.c | 17 +++++++++++++++++
+ drivers/usb/host/ehci-platform.c | 27 +++++++++++++++++++++++++++
  drivers/usb/host/ehci.h          |  1 +
  drivers/usb/host/ohci-hub.c      | 10 +++++++++-
- drivers/usb/host/ohci-platform.c | 17 +++++++++++++++++
+ drivers/usb/host/ohci-platform.c | 26 ++++++++++++++++++++++++++
  drivers/usb/host/ohci.h          |  1 +
- 7 files changed, 57 insertions(+), 2 deletions(-)
+ 7 files changed, 76 insertions(+), 2 deletions(-)
 
 --- a/drivers/usb/host/ehci-hcd.c
 +++ b/drivers/usb/host/ehci-hcd.c
@@ -78,17 +90,36 @@ without this it hung at the first OHCI platform suspend.
  				goto error;
 --- a/drivers/usb/host/ehci-platform.c
 +++ b/drivers/usb/host/ehci-platform.c
-@@ -298,6 +298,9 @@ static int ehci_platform_probe(struct pl
+@@ -298,6 +298,12 @@ static int ehci_platform_probe(struct pl
  					  "needs-reset-on-resume"))
  			priv->reset_on_resume = true;
  
-+		if (of_device_get_match_data(&dev->dev))
++		if (of_device_is_compatible(dev->dev.of_node,
++					    "hisilicon,hi3798mv100-ehci") ||
++		    of_device_is_compatible(dev->dev.of_node,
++					    "hisilicon,hi3798mv200-ehci"))
 +			ehci->no_rh_suspend = 1;
 +
  		if (of_property_read_bool(dev->dev.of_node,
  					  "has-transaction-translator"))
  			hcd->has_tt = 1;
-@@ -441,9 +444,14 @@ static int __maybe_unused ehci_platform_
+@@ -383,6 +389,15 @@ static int ehci_platform_probe(struct pl
+ 	if (err)
+ 		goto err_power;
+ 
++	/*
++	 * The quirk keeps the host and its ports running through system
++	 * suspend.  Keep the root hub device awake with them at runtime:
++	 * once the USB core parks it, these hosts stop reporting port
++	 * changes and hotplugs go unnoticed.
++	 */
++	if (ehci->no_rh_suspend)
++		pm_runtime_forbid(&hcd->self.root_hub->dev);
++
+ 	device_wakeup_enable(hcd->self.controller);
+ 	device_enable_async_suspend(hcd->self.controller);
+ 	platform_set_drvdata(dev, hcd);
+@@ -441,9 +456,14 @@ static int __maybe_unused ehci_platform_
  	struct usb_ehci_pdata *pdata = dev_get_platdata(dev);
  	struct platform_device *pdev = to_platform_device(dev);
  	struct ehci_platform_priv *priv = hcd_to_ehci_priv(hcd);
@@ -103,7 +134,7 @@ without this it hung at the first OHCI platform suspend.
  	if (priv->quirk_poll)
  		quirk_poll_end(priv);
  
-@@ -474,9 +482,14 @@ static int __maybe_unused ehci_platform_
+@@ -474,9 +494,14 @@ static int __maybe_unused ehci_platform_
  	struct usb_ehci_pdata *pdata = dev_get_platdata(dev);
  	struct platform_device *pdev = to_platform_device(dev);
  	struct ehci_platform_priv *priv = hcd_to_ehci_priv(hcd);
@@ -118,14 +149,12 @@ without this it hung at the first OHCI platform suspend.
  	err = reset_control_deassert(priv->rsts);
  	if (err)
  		return err;
-@@ -513,6 +526,10 @@ static const struct of_device_id vt8500_
+@@ -513,6 +538,8 @@ static const struct of_device_id vt8500_
  	{ .compatible = "generic-ehci", },
  	{ .compatible = "cavium,octeon-6335-ehci", },
  	{ .compatible = "aspeed,ast2700-ehci",	.data = (void *)1 },
-+	{ .compatible = "hisilicon,hi3798mv100-ehci",
-+	  .data = (void *)1, },
-+	{ .compatible = "hisilicon,hi3798mv200-ehci",
-+	  .data = (void *)1, },
++	{ .compatible = "hisilicon,hi3798mv100-ehci", },
++	{ .compatible = "hisilicon,hi3798mv200-ehci", },
  	{}
  };
  MODULE_DEVICE_TABLE(of, vt8500_ehci_ids);
@@ -181,17 +210,35 @@ without this it hung at the first OHCI platform suspend.
  					&& hcd->self.b_hnp_enable)
 --- a/drivers/usb/host/ohci-platform.c
 +++ b/drivers/usb/host/ohci-platform.c
-@@ -139,6 +139,9 @@ static int ohci_platform_probe(struct pl
+@@ -139,6 +139,12 @@ static int ohci_platform_probe(struct pl
  					  "remote-wakeup-connected"))
  			ohci->hc_control = OHCI_CTRL_RWC;
  
-+		if (of_device_get_match_data(&dev->dev))
++		if (of_device_is_compatible(dev->dev.of_node,
++					    "hisilicon,hi3798mv100-ohci") ||
++		    of_device_is_compatible(dev->dev.of_node,
++					    "hisilicon,hi3798mv200-ohci"))
 +			ohci->flags |= OHCI_QUIRK_NO_RH_SUSPEND;
 +
  		of_property_read_u32(dev->dev.of_node, "num-ports",
  				     &ohci->num_ports);
  
-@@ -272,8 +275,13 @@ static int ohci_platform_suspend(struct
+@@ -213,6 +219,14 @@ static int ohci_platform_probe(struct pl
+ 	if (err)
+ 		goto err_power;
+ 
++	/*
++	 * Like the EHCI side, keep the root hub device awake with its
++	 * host: the ports keep running and a parked root hub stops
++	 * reporting port changes on these parts.
++	 */
++	if (ohci->flags & OHCI_QUIRK_NO_RH_SUSPEND)
++		pm_runtime_forbid(&hcd->self.root_hub->dev);
++
+ 	device_wakeup_enable(hcd->self.controller);
+ 
+ 	platform_set_drvdata(dev, hcd);
+@@ -272,8 +286,13 @@ static int ohci_platform_suspend(struct
  	struct platform_device *pdev = to_platform_device(dev);
  	struct ohci_platform_priv *priv = hcd_to_ohci_priv(hcd);
  	bool do_wakeup = device_may_wakeup(dev);
@@ -205,7 +252,7 @@ without this it hung at the first OHCI platform suspend.
  	ret = ohci_suspend(hcd, do_wakeup);
  	if (ret)
  		return ret;
-@@ -298,8 +306,13 @@ static int ohci_platform_resume_common(s
+@@ -298,8 +317,13 @@ static int ohci_platform_resume_common(s
  	struct usb_ohci_pdata *pdata = dev_get_platdata(dev);
  	struct platform_device *pdev = to_platform_device(dev);
  	struct ohci_platform_priv *priv = hcd_to_ohci_priv(hcd);
@@ -219,14 +266,12 @@ without this it hung at the first OHCI platform suspend.
  	err = reset_control_deassert(priv->resets);
  	if (err)
  		return err;
-@@ -335,6 +348,10 @@ static int ohci_platform_restore(struct
+@@ -335,6 +359,8 @@ static int ohci_platform_restore(struct
  static const struct of_device_id ohci_platform_ids[] = {
  	{ .compatible = "generic-ohci", },
  	{ .compatible = "cavium,octeon-6335-ohci", },
-+	{ .compatible = "hisilicon,hi3798mv100-ohci",
-+	  .data = (void *)1, },
-+	{ .compatible = "hisilicon,hi3798mv200-ohci",
-+	  .data = (void *)1, },
++	{ .compatible = "hisilicon,hi3798mv100-ohci", },
++	{ .compatible = "hisilicon,hi3798mv200-ohci", },
  	{ .compatible = "ti,ohci-omap3", },
  	{ }
  };

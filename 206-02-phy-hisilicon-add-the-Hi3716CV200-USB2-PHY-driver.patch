@@ -1,0 +1,272 @@
+From b67282f3ee39d17165aeff11f248931c4b38d836 Mon Sep 17 00:00:00 2001
+From: David Yang <mmyangfl@gmail.com>
+Date: Sun, 22 Nov 2026 05:30:00 +0800
+Subject: [PATCH 2/2] phy: hisilicon: add the Hi3716CV200 USB2 PHY driver
+
+Each of the three USB2 ports of the Hi3716CV200 hangs off a PHY whose
+power-down bit sits in a PERI control word and whose two reset request
+bits sit in the USB2 PHY CRG word. The generic EHCI and OHCI platform
+drivers run none of that: on this board a port whose PHY keeps its
+power-down bit set enumerates nothing at all, and the EHCI takes a port
+over its companion only once that PHY is out of its test reset.
+
+Write the port group's interface word, release the two resets of the
+port, and drop its power-down bit when the USB core brings the roothub
+up, so the host drivers get a running PHY out of the phys they already
+name. The PHYs' analogue tuning bits stay as the boot leaves them, and
+the test port the three PHYs share goes unused on this part.
+
+Signed-off-by: David Yang <mmyangfl@gmail.com>
+---
+ drivers/phy/hisilicon/Kconfig                |  10 +
+ drivers/phy/hisilicon/Makefile               |   1 +
+ drivers/phy/hisilicon/phy-hi3716cv200-usb2.c | 216 +++++++++++++++++++
+ 3 files changed, 227 insertions(+)
+ create mode 100644 drivers/phy/hisilicon/phy-hi3716cv200-usb2.c
+
+--- a/drivers/phy/hisilicon/Kconfig
++++ b/drivers/phy/hisilicon/Kconfig
+@@ -62,6 +62,16 @@ config PHY_HISI_INNO_USB2
+ 	  USB 1.5Mb/s, USB 12Mb/s, USB 480Mb/s speeds. It supports one
+ 	  USB host port to accept one USB device.
+ 
++config PHY_HI3716CV200_USB2
++	tristate "Hi3716CV200 USB2 PHY support"
++	depends on ARCH_HI3716CV200 && OF && HAS_IOMEM
++	select GENERIC_PHY
++	help
++	  Enable this to support the three USB2 PHY ports of the HiSilicon
++	  Hi3716CV200. A port's PHY stays powered down until the port is
++	  used, and the EHCI and OHCI host drivers run neither that nor the
++	  two resets the PHY has in the CRG.
++
+ config PHY_HIX5HD2_SATA
+ 	tristate "HIX5HD2 SATA PHY Driver"
+ 	depends on ARCH_HIX5HD2 && OF && HAS_IOMEM
+--- a/drivers/phy/hisilicon/Makefile
++++ b/drivers/phy/hisilicon/Makefile
+@@ -5,4 +5,5 @@ obj-$(CONFIG_PHY_HI3670_USB)		+= phy-hi3
+ obj-$(CONFIG_PHY_HI3670_PCIE)		+= phy-hi3670-pcie.o
+ obj-$(CONFIG_PHY_HISTB_COMBPHY)		+= phy-histb-combphy.o
+ obj-$(CONFIG_PHY_HISI_INNO_USB2)	+= phy-hisi-inno-usb2.o
++obj-$(CONFIG_PHY_HI3716CV200_USB2)	+= phy-hi3716cv200-usb2.o
+ obj-$(CONFIG_PHY_HIX5HD2_SATA)		+= phy-hix5hd2-sata.o
+--- /dev/null
++++ b/drivers/phy/hisilicon/phy-hi3716cv200-usb2.c
+@@ -0,0 +1,216 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++/*
++ * USB2 PHY driver for the HiSilicon Hi3716CV200.
++ *
++ * The part has three USB2 ports, each with its own PHY. PERI holds one
++ * control word per PHY, whose power-down bit keeps the PHY off until the
++ * port is used, and one word for the port group, which selects the
++ * interface every port is driven with. The reference clocks of the PHYs
++ * are gated with the block by the CRG, while each PHY keeps its own pair
++ * of reset request cells, which the port's DT node names.
++ *
++ * Neither the EHCI nor the OHCI platform driver brings a PHY up, so a port
++ * whose PHY is left powered down never reports a connection, and one left
++ * in its test reset is taken by the companion driver at full speed only.
++ */
++
++#include <linux/delay.h>
++#include <linux/io.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/phy/phy.h>
++#include <linux/platform_device.h>
++#include <linux/reset.h>
++
++#define HI3716CV200_USB2_PORTS		3
++
++#define USB2_IFACE			0x000
++#define  IFACE_16BIT_WORD_IF		BIT(0)
++#define  IFACE_ULPI_BYPASS		BIT(3)
++#define  IFACE_SS_BURST16		BIT(9)
++
++/*
++ * PHY control word of each port, as an offset into the window. The word
++ * the three PHYs share for their test access sits between the second and
++ * the third, so the offsets are not a stride.
++ */
++static const u32 hi3716cv200_usb2_ctrl[HI3716CV200_USB2_PORTS] = {
++	0x004, 0x008, 0x010,
++};
++#define  PHY_CTRL_SIDDQ			BIT(22)	/* set = PHY powered down */
++
++/*
++ * The resets are released one after the other, and the PHY needs its
++ * settling time before the port is powered up; the interface word is
++ * written ahead of both, while the port is still held in reset.
++ */
++#define IFACE_STABLE_TIME		100	/* unit: us */
++#define PHY_RST_STABLE_TIME		300	/* unit: us */
++#define PHY_POWER_STABLE_TIME		200	/* unit: us */
++
++struct hi3716cv200_usb2_port {
++	struct hi3716cv200_usb2 *priv;
++	void __iomem *ctrl;
++	struct reset_control *por_rst;
++	struct reset_control *treq_rst;
++};
++
++struct hi3716cv200_usb2 {
++	void __iomem *base;
++	struct hi3716cv200_usb2_port ports[HI3716CV200_USB2_PORTS];
++};
++
++static int hi3716cv200_usb2_phy_init(struct phy *phy)
++{
++	struct hi3716cv200_usb2_port *port = phy_get_drvdata(phy);
++	struct hi3716cv200_usb2 *priv = port->priv;
++	u32 val;
++	int ret;
++
++	/*
++	 * The interface word covers all three ports and every port wants
++	 * the same setting, so each init writes the same value.
++	 */
++	val = readl(priv->base + USB2_IFACE);
++	val &= ~(IFACE_16BIT_WORD_IF | IFACE_SS_BURST16);
++	writel(val | IFACE_ULPI_BYPASS, priv->base + USB2_IFACE);
++	udelay(IFACE_STABLE_TIME);
++
++	ret = reset_control_deassert(port->por_rst);
++	if (ret)
++		return ret;
++	udelay(PHY_RST_STABLE_TIME);
++
++	ret = reset_control_deassert(port->treq_rst);
++	if (ret) {
++		reset_control_assert(port->por_rst);
++		return ret;
++	}
++	udelay(PHY_RST_STABLE_TIME);
++
++	return 0;
++}
++
++static int hi3716cv200_usb2_phy_exit(struct phy *phy)
++{
++	struct hi3716cv200_usb2_port *port = phy_get_drvdata(phy);
++
++	reset_control_assert(port->treq_rst);
++	reset_control_assert(port->por_rst);
++
++	return 0;
++}
++
++static int hi3716cv200_usb2_phy_power_on(struct phy *phy)
++{
++	struct hi3716cv200_usb2_port *port = phy_get_drvdata(phy);
++
++	writel(readl(port->ctrl) & ~PHY_CTRL_SIDDQ, port->ctrl);
++	udelay(PHY_POWER_STABLE_TIME);
++
++	return 0;
++}
++
++static int hi3716cv200_usb2_phy_power_off(struct phy *phy)
++{
++	struct hi3716cv200_usb2_port *port = phy_get_drvdata(phy);
++
++	writel(readl(port->ctrl) | PHY_CTRL_SIDDQ, port->ctrl);
++	udelay(PHY_POWER_STABLE_TIME);
++
++	return 0;
++}
++
++static const struct phy_ops hi3716cv200_usb2_phy_ops = {
++	.init		= hi3716cv200_usb2_phy_init,
++	.exit		= hi3716cv200_usb2_phy_exit,
++	.power_on	= hi3716cv200_usb2_phy_power_on,
++	.power_off	= hi3716cv200_usb2_phy_power_off,
++	.owner		= THIS_MODULE,
++};
++
++static int hi3716cv200_usb2_phy_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct hi3716cv200_usb2 *priv;
++	struct phy_provider *provider;
++	struct resource *res;
++	int ret;
++
++	priv = devm_kzalloc_obj(dev, *priv);
++	if (!priv)
++		return -ENOMEM;
++
++	/*
++	 * Mapped, not claimed: the PERI system controller covers the same
++	 * bytes, and the tuning bits of a PHY belong to this driver alone.
++	 */
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	if (!res)
++		return -EINVAL;
++
++	priv->base = devm_ioremap(dev, res->start, resource_size(res));
++	if (!priv->base)
++		return -ENOMEM;
++
++	for_each_child_of_node_scoped(dev->of_node, child) {
++		struct hi3716cv200_usb2_port *port;
++		struct phy *phy;
++		u32 index;
++
++		ret = of_property_read_u32(child, "reg", &index);
++		if (ret)
++			return dev_err_probe(dev, ret,
++					     "port node with no index\n");
++		if (index >= HI3716CV200_USB2_PORTS)
++			return dev_err_probe(dev, -EINVAL,
++					     "port %u is not on this part\n",
++					     index);
++
++		port = &priv->ports[index];
++		port->priv = priv;
++		port->ctrl = priv->base + hi3716cv200_usb2_ctrl[index];
++		port->por_rst = devm_reset_control_get_exclusive_by_index(dev,
++							   2 * index);
++		if (IS_ERR(port->por_rst))
++			return dev_err_probe(dev, PTR_ERR(port->por_rst),
++					     "missing reset of port %u\n",
++					     index);
++		port->treq_rst = devm_reset_control_get_exclusive_by_index(dev,
++							   2 * index + 1);
++		if (IS_ERR(port->treq_rst))
++			return dev_err_probe(dev, PTR_ERR(port->treq_rst),
++					     "missing reset of port %u\n",
++					     index);
++
++		phy = devm_phy_create(dev, child, &hi3716cv200_usb2_phy_ops);
++		if (IS_ERR(phy))
++			return dev_err_probe(dev, PTR_ERR(phy),
++					     "failed to create PHY\n");
++
++		phy_set_bus_width(phy, 8);
++		phy_set_drvdata(phy, port);
++	}
++
++	provider = devm_of_phy_provider_register(dev, of_phy_simple_xlate);
++
++	return PTR_ERR_OR_ZERO(provider);
++}
++
++static const struct of_device_id hi3716cv200_usb2_phy_of_match[] = {
++	{ .compatible = "hisilicon,hi3716cv200-usb2-phy" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, hi3716cv200_usb2_phy_of_match);
++
++static struct platform_driver hi3716cv200_usb2_phy_driver = {
++	.probe	= hi3716cv200_usb2_phy_probe,
++	.driver	= {
++		.name		= "hi3716cv200-usb2-phy",
++		.of_match_table	= hi3716cv200_usb2_phy_of_match,
++	},
++};
++module_platform_driver(hi3716cv200_usb2_phy_driver);
++
++MODULE_DESCRIPTION("HiSilicon Hi3716CV200 USB2 PHY driver");
++MODULE_LICENSE("GPL");

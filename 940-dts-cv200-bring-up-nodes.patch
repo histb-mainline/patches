@@ -14,7 +14,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 
 --- a/arch/arm/boot/dts/hisilicon/hi3716cv200-ar513w.dts
 +++ b/arch/arm/boot/dts/hisilicon/hi3716cv200-ar513w.dts
-@@ -14,6 +14,17 @@
+@@ -15,6 +15,17 @@
  	compatible = "hisilicon,ar513w", "hisilicon,hi3716cv200";
  };
  
@@ -45,7 +45,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
   */
  
  #include <dt-bindings/clock/hisilicon,hi3716cv200-crg.h>
-@@ -67,16 +71,27 @@
+@@ -143,16 +147,27 @@
  	};
  
  	/*
@@ -73,7 +73,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  		 */
  		secure-reg-access;
  	};
-@@ -92,7 +107,14 @@
+@@ -168,7 +183,14 @@
  	};
  
  	/*
@@ -89,7 +89,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  	 */
  	L2: cache-controller@f8a10000 {
  		compatible = "arm,pl310-cache";
-@@ -637,6 +659,7 @@
+@@ -714,6 +736,7 @@
  		 * Its clock gate is CRG27 bit 0 with the reset at bit 1 -- the family's sixth
  		 * slot (drivers/clk/hisilicon/clk-hix5hd2.c:124) and the one pair the boot hands
  		 * over held in reset along with the other five. Nothing is known to hang off
@@ -97,7 +97,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  		 */
  		i2c5: i2c@f8b17000 {
  			compatible = "hisilicon,hix5hd2-i2c";
-@@ -660,7 +683,6 @@
+@@ -737,7 +760,6 @@
  		 * The same clock id feeds both names because CRG28 has one gate per
  		 * port and no separate APB gate: sspclk is what the driver asks for and
  		 * apb_pclk is the binding's second name for the same access.
@@ -105,7 +105,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  		 */
  		ssp0: spi@f8b1a000 {
  			compatible = "arm,pl022", "arm,primecell";
-@@ -671,6 +693,12 @@
+@@ -748,6 +770,12 @@
  			clock-names = "sspclk", "apb_pclk";
  			#address-cells = <1>;
  			#size-cells = <0>;
@@ -118,7 +118,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  		};
  
  		ssp1: spi@f8007000 {
-@@ -755,6 +783,10 @@
+@@ -870,6 +898,10 @@
  		};
  
  		/*
@@ -129,7 +129,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  		 */
  		usb4: usb@f98c0000 {
  			compatible = "snps,dwc2";
-@@ -835,12 +867,33 @@
+@@ -950,12 +982,33 @@
  
  		/*
  		 * The two DesignWare MSH hosts the vendor calls SDIO0 and SDIO1
@@ -167,7 +167,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  		 */
  		sdio0: mmc@f9820000 {
  			compatible = "snps,dw-mshc";
-@@ -853,15 +906,19 @@
+@@ -968,15 +1021,23 @@
  			max-frequency = <50000000>;
  			cap-sd-highspeed;
  			/*
@@ -178,23 +178,28 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
 -			 * exactly what this property means, and polling on a slot a human can
 -			 * empty is the honest description; non-removable would instead claim the
 -			 * card can never leave.
-+			 * The detect line is not usable here: dw_mci_get_cd() returns
-+			 * !(CDETECT & BIT(0)) (dw_mmc.c:897), and on this board that reads
-+			 * "absent" whether or not a card sits in the slot, so without this
-+			 * property the core never tries to initialise one. The slot is one
-+			 * a human can empty, so polling is the honest description;
-+			 * non-removable would claim the opposite.
- 			 */
- 			broken-cd;
++			 * No card-detect mechanism is usable on this slot: the native
++			 * CDETECT (SDMMC_CDETECT 0x50, dw_mmc.h:302) reads bit0 = 0 with
++			 * the slot empty -- i.e. "present" under dw_mci_get_cd()'s
++			 * !(CDETECT & BIT(0)) (dw_mmc.c:897) -- and nothing distinguishes
++			 * an inserted card, so polling (broken-cd) would drive an
++			 * initialise attempt on the empty slot once a second, an endless
++			 * command-timeout flood on the console (measured 2026-11-21; the
++			 * empty-slot CDETECT = 0 reading is the same on the 2026-10-22
++			 * bringup line). Without broken-cd the core scans once at boot and
++			 * goes quiet; a card inserted before power-on enumerates, later
++			 * insert/remove goes undetected.
++			 */
 +			/*
 +			 * Enabled here only so the bench can reach the host end to end
 +			 * (0xf9820000 is the SD slot, 0xf9830000 the 8-bit MMC one);
 +			 * the card is mounted read-only while a round runs.
-+			 */
+ 			 */
+-			broken-cd;
  			status = "okay";
  		};
  
-@@ -876,6 +933,10 @@
+@@ -991,6 +1052,10 @@
  			max-frequency = <50000000>;
  			cap-mmc-highspeed;
  			/*
@@ -205,7 +210,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  			 */
  			/*
  			 * The rail word (0xf8a2011c) reads 0x60, the vendor SDIO
-@@ -884,7 +945,13 @@
+@@ -999,7 +1064,13 @@
  			 */
  			no-1-8-v;
  			/*
@@ -220,7 +225,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  			 */
  			status = "disabled";
  		};
-@@ -892,21 +959,34 @@
+@@ -1007,21 +1078,34 @@
  		/*
  		 * Port 1 of the gigabit switch fabric, the one wired to the Hi3620 side
  		 * of this board (the vendor fastboot tftp path, and the vendor Linux
@@ -255,7 +260,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  			 */
  			status = "disabled";
  			reg = <0xf9840000 0x1000>, <0xf984300c 0x4>;
-@@ -938,6 +1018,7 @@
+@@ -1053,6 +1137,7 @@
  			reg = <0xf9841000 0x1000>, <0xf9843010 0x4>;
  			/*
  			 * GIC interrupt ID 104. Taken from the vendor system's own
@@ -263,7 +268,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  			 * boot log, where uart-pl011 is 81 -- the value my kernel
  			 * measures for the same device -- so that table is in interrupt
  			 * IDs, not Linux virtual numbers): gmac0 is 103, gmac1 is 104.
-@@ -948,6 +1029,15 @@
+@@ -1063,6 +1148,15 @@
  			clocks = <&crg HI3716CV200_GMAC1_CLK>;
  			clock-names = "mac_core";
  			/*
@@ -279,7 +284,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  			 */
  			resets = <&crg 0xcc 11>;
  			reset-names = "mac_ifc";
-@@ -1082,7 +1172,14 @@
+@@ -1197,7 +1291,14 @@
  		};
  
  		/*
@@ -294,7 +299,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  		 */
  		/*
  		 * The output channel (vdp_v1_0 "DHD0"). Its register file is the VDP
-@@ -1172,6 +1269,11 @@
+@@ -1287,6 +1388,11 @@
  	};
  
  	/*
@@ -306,7 +311,7 @@ Signed-off-by: David Yang <mmyangfl@gmail.com>
  	 */
  	sound {
  		compatible = "hisilicon,hi3716cv200-aiao-card";
-@@ -1204,6 +1306,8 @@
+@@ -1319,6 +1425,8 @@
  		};
  
  		/*
